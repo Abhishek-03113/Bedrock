@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
-import { initDb } from "./db/db.js";
+import { closeDb, initDb } from "./db/db.js";
 import { SourceHost } from "./source-host.js";
 import {
   buildContextMessage,
@@ -143,21 +143,54 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("window-all-closed", () => {
+let isQuitting = false;
+
+/**
+ * Tear down everything that holds an OS resource (sockets, mDNS
+ * advertisement, the sqlite handle) before the process actually exits.
+ * Idempotent — safe to invoke from multiple lifecycle hooks.
+ */
+async function shutdown(): Promise<void> {
+  if (isQuitting) return;
+  isQuitting = true;
+
   stopDiscovery?.();
   stopDiscovery = null;
-  void remoteServer?.close().catch((err) => {
+
+  try {
+    await remoteServer?.close();
+  } catch (err) {
     console.warn("[remote] close error", err);
-  });
+  }
   remoteServer = null;
+
+  sourceHost?.dispose();
+  sourceHost = null;
+
+  toastOverlay?.dispose();
+  toastOverlay = null;
+
+  try {
+    closeDb();
+  } catch (err) {
+    console.warn("[db] close error", err);
+  }
+}
+
+app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
-app.on("before-quit", () => {
-  stopDiscovery?.();
-  stopDiscovery = null;
-  void remoteServer?.close().catch(() => undefined);
-  remoteServer = null;
+app.on("before-quit", (event) => {
+  if (isQuitting) return;
+  event.preventDefault();
+  void shutdown().finally(() => app.quit());
 });
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    void shutdown().finally(() => process.exit(0));
+  });
+}
