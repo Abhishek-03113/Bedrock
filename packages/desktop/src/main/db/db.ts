@@ -47,6 +47,13 @@ export function getDb(): Database.Database {
   return db;
 }
 
+/** Flush WAL and release the file handle — call once during app shutdown. */
+export function closeDb(): void {
+  if (!db) return;
+  db.close();
+  db = null;
+}
+
 export function getAppState(key: string): string | null {
   const row = getDb()
     .prepare("SELECT value FROM app_state WHERE key = ?")
