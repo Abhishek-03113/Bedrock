@@ -1,7 +1,7 @@
 import { Bonjour } from "bonjour-service";
 
-const SERVICE_NAME = "CoOSy";
-const SERVICE_TYPE = "coosy";
+const SERVICE_NAME = "Bedrock";
+const SERVICE_TYPE = "bedrock";
 
 /**
  * Advertise the remote WebSocket/HTTP endpoint on the LAN via mDNS.

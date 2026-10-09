@@ -89,4 +89,4 @@ export function nextHostState(
     pauseSourceId,
   };
 }
-import type { MediaSource } from "@coosy/shared";
+import type { MediaSource } from "@bedrock/shared";

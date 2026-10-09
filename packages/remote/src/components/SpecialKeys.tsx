@@ -1,5 +1,5 @@
 import type { WsClient } from '../ws-client';
-import type { RemoteKey } from '@coosy/shared';
+import type { RemoteKey } from '@bedrock/shared';
 
 interface SpecialKeysProps {
   client: WsClient;

@@ -25,7 +25,7 @@ Stock Electron does **not** ship a usable Widevine path for Netflix HD. That alo
 
 ## Manual validation checklist (run on a real machine)
 
-After `pnpm install` + `pnpm --filter @coosy/desktop dev`:
+After `pnpm install` + `pnpm --filter @bedrock/desktop dev`:
 
 - [ ] App starts; console shows `[widevine] components ready: …`
 - [ ] Open Netflix source → login UI loads
@@ -64,7 +64,7 @@ We treat the spike as **GO to implement** with ECS wired in-app. Final “Netfli
   }
 }
 [ws] listening on :17832
-[discovery] advertising CoOSy._coosy._tcp on :17832
+[discovery] advertising Bedrock._bedrock._tcp on :17832
 ```
 
 CDM installs and the app boots on ECS. Playback of a Netflix title still needs manual confirmation.

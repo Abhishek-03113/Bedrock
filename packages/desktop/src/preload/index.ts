@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { NavAction, PlaybackHistoryItem, SourceCapabilities } from "@coosy/shared";
+import type { NavAction, PlaybackHistoryItem, SourceCapabilities } from "@bedrock/shared";
 
 export interface SourceListItem {
   id: string;
@@ -73,6 +73,6 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld("coosy", api);
+contextBridge.exposeInMainWorld("bedrock", api);
 
-export type CoosyApi = typeof api;
+export type BedrockApi = typeof api;

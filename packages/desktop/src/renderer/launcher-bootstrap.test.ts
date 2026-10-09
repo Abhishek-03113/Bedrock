@@ -24,13 +24,13 @@ describe("launcher bootstrap cache", () => {
       ip: "10.0.0.1",
       port: 17832,
       pairingCode: "123456",
-      mdnsName: "CoOSy",
+      mdnsName: "Bedrock",
       httpUrl: "http://10.0.0.1:17832",
       remoteError: null,
     });
 
     vi.stubGlobal("window", {
-      coosy: { listSources, getConnectionInfo },
+      bedrock: { listSources, getConnectionInfo },
     });
 
     expect(getCachedLauncherBootstrap()).toBeNull();

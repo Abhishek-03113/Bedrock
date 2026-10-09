@@ -2,7 +2,7 @@ import { Component, useEffect, useMemo, useState, type FormEvent, type ReactNode
 import type {
   RemoteSourceSummary,
   SourceCapabilities,
-} from "@coosy/shared";
+} from "@bedrock/shared";
 import { RemoteControls } from "./screens/RemoteControls";
 import { useRemoteToast } from "./use-remote-toast";
 import {
@@ -30,10 +30,10 @@ class RemoteErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <main className="remote remote--status">
-          <h1>CoOSy</h1>
+          <h1>Bedrock</h1>
           <p className="remote__status remote__status--disconnected">ERROR</p>
           <p className="remote__error">{this.state.error}</p>
-          <p className="remote__hint">Refresh the page after restarting CoOSy on the laptop.</p>
+          <p className="remote__hint">Refresh the page after restarting Bedrock on the laptop.</p>
         </main>
       );
     }
@@ -123,7 +123,7 @@ function RemoteApp() {
   if (bootError) {
     return (
       <main className="remote remote--status">
-        <h1>CoOSy</h1>
+        <h1>Bedrock</h1>
         <p className="remote__status remote__status--disconnected">ERROR</p>
         <p className="remote__error">{bootError}</p>
       </main>
@@ -146,7 +146,7 @@ function RemoteApp() {
 
   return (
     <main className="remote remote--status">
-      <h1>CoOSy</h1>
+      <h1>Bedrock</h1>
       <p
         className={`remote__status remote__status--${status.toLowerCase()}`}
         aria-live="polite"
@@ -155,7 +155,7 @@ function RemoteApp() {
       </p>
       <p className="remote__hint">
         {needsPairing || status === "DISCONNECTED"
-          ? "Enter the 6-digit code shown on the CoOSy TV / laptop."
+          ? "Enter the 6-digit code shown on the Bedrock TV / laptop."
           : "Looking for the laptop on this Wi-Fi…"}
       </p>
       <form className="remote__pair" onSubmit={submitPairing}>

@@ -2,7 +2,7 @@ import { NetflixSource } from "./netflix/netflix-source.js";
 import { YoutubeSource } from "./youtube/youtube-source.js";
 import { HotstarSource } from "./hotstar/hotstar-source.js";
 import { PrimeSource } from "./prime/prime-source.js";
-import type { MediaSource } from "@coosy/shared";
+import type { MediaSource } from "@bedrock/shared";
 
 /**
  * Deliberately not a plugin system — plain lookup table (architecture §5).

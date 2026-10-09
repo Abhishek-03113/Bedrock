@@ -1,9 +1,9 @@
-# Widevine VMP / EVS Integration — CoOSy
+# Widevine VMP / EVS Integration — Bedrock
 
 ## What is Castlabs ECS?
 
 **Electron for Content Security (ECS)** is a Castlabs-maintained fork of Electron
-with DRM support patched in. CoOSy uses it instead of stock Electron because:
+with DRM support patched in. Bedrock uses it instead of stock Electron because:
 
 - Stock Electron does not ship a usable Widevine CDM path for DRM-protected
   streaming services.
@@ -12,7 +12,7 @@ with DRM support patched in. CoOSy uses it instead of stock Electron because:
 - ECS ships with development-level VMP signatures that allow DRM playback in
   development environments.
 
-CoOSy pins to:
+Bedrock pins to:
 
 ```
 https://github.com/castlabs/electron-releases#v42.8.0+wvcus
@@ -72,7 +72,7 @@ The component ID (`oimompecagnajdejgnnjijobebaeigek`) is Widevine's Chrome exten
 identifier. The status field values include `"new"`, `"ready"`, `"updated"`, and
 `"down"`.
 
-CoOSy logs this at startup:
+Bedrock logs this at startup:
 
 ```
 [widevine] waiting for Widevine component updater…
@@ -212,7 +212,7 @@ This signs the ECS Electron binaries in `node_modules/electron/dist/`.
 
 ```sh
 # First time / after updating electron:
-pnpm --filter @coosy/desktop drm:sign:electron
+pnpm --filter @bedrock/desktop drm:sign:electron
 
 # Normal development iteration:
 pnpm dev
@@ -226,10 +226,10 @@ Normal `pnpm dev` does NOT call EVS. Signing is an explicit developer step.
 
 ```sh
 # 1. Build the application assets
-pnpm --filter @coosy/desktop build
+pnpm --filter @bedrock/desktop build
 
 # 2. Package — electron-builder calls vmp-sign.mjs via afterPack
-pnpm --filter @coosy/desktop package:win
+pnpm --filter @bedrock/desktop package:win
 ```
 
 ### Production VMP required
@@ -237,11 +237,11 @@ pnpm --filter @coosy/desktop package:win
 If EVS signing is required for production, set:
 
 ```sh
-export COOSY_REQUIRE_VMP_SIGNING=1
-pnpm --filter @coosy/desktop package:win
+export BEDROCK_REQUIRE_VMP_SIGNING=1
+pnpm --filter @bedrock/desktop package:win
 ```
 
-Without `COOSY_REQUIRE_VMP_SIGNING=1`, the afterPack hook will warn if EVS is
+Without `BEDROCK_REQUIRE_VMP_SIGNING=1`, the afterPack hook will warn if EVS is
 unavailable but will NOT fail the build. This allows unsigned development builds.
 With the flag set, missing EVS credentials fail the build immediately.
 
@@ -268,7 +268,7 @@ NSIS installer is assembled (`afterPack` hook). The NSIS installer itself is a
 separate signing step using a Windows Authenticode certificate — EVS VMP does not
 provide this.
 
-CoOSy's `scripts/vmp-sign.mjs` handles EVS VMP only.
+Bedrock's `scripts/vmp-sign.mjs` handles EVS VMP only.
 
 To enable Windows Authenticode signing, set `CSC_LINK` and `CSC_KEY_PASSWORD`
 environment variables with a valid Windows code-signing certificate. See
@@ -288,7 +288,7 @@ is **unsigned** — acceptable for local testing.
 
 ### `[widevine] Castlabs ECS components API is unavailable` at startup
 
-CoOSy is running against stock Electron. Ensure the `electron` dependency in
+Bedrock is running against stock Electron. Ensure the `electron` dependency in
 `packages/desktop/package.json` is the Castlabs ECS URL:
 
 ```
@@ -324,7 +324,7 @@ E100 on Netflix
      │
      ├─ 5. Clear persistent Netflix session
      │      The session is stored at: userData/Partitions/persist_netflix/
-     │      To reset: close CoOSy, delete that directory, relaunch.
+     │      To reset: close Bedrock, delete that directory, relaunch.
      │      If E100 disappears after reset: stale device state was the cause.
      │
      ├─ 6. Compare user agent

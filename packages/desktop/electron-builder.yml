@@ -1,6 +1,6 @@
-appId: com.coosy.app
-productName: CoOSy
-copyright: Copyright © 2026 CoOSy
+appId: com.bedrock.app
+productName: Bedrock
+copyright: Copyright © 2026 Bedrock
 
 # Skip native module rebuilding when cross-compiling from macOS to Windows.
 # The Castlabs Electron runtime already includes prebuilt native deps.
@@ -25,7 +25,7 @@ files:
 
 # afterPack runs after electron-builder unpacks the app but before creating the installer.
 # This is the correct point to run EVS VMP signing on the application directory.
-# The hook reads COOSY_REQUIRE_VMP_SIGNING to decide if missing credentials are fatal.
+# The hook reads BEDROCK_REQUIRE_VMP_SIGNING to decide if missing credentials are fatal.
 afterPack: scripts/vmp-sign.mjs
 
 mac:

@@ -1,6 +1,6 @@
-import type { NavAction, PlaybackHistoryItem, SourceCapabilities } from "@coosy/shared";
+import type { NavAction, PlaybackHistoryItem, SourceCapabilities } from "@bedrock/shared";
 
-export type { PlaybackHistoryItem } from "@coosy/shared";
+export type { PlaybackHistoryItem } from "@bedrock/shared";
 
 export interface SourceListItem {
   id: string;
@@ -18,7 +18,7 @@ export interface ConnectionInfo {
   remoteError: string | null;
 }
 
-export interface CoosyRendererApi {
+export interface BedrockRendererApi {
   listSources: () => Promise<SourceListItem[]>;
   openSource: (sourceId: string) => Promise<void>;
   listPlaybackHistory: () => Promise<PlaybackHistoryItem[]>;

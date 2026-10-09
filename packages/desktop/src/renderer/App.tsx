@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { NavAction, PlaybackHistoryItem } from "@coosy/shared";
+import type { NavAction, PlaybackHistoryItem } from "@bedrock/shared";
 import { HomeScreen } from "./screens/HomeScreen";
 import { PlayerOverlay } from "./screens/PlayerOverlay";
 
@@ -7,7 +7,7 @@ type Screen = "home" | "player";
 
 /**
  * Surfaces:
- * 1. Launcher (home) — CoOSy UI
+ * 1. Launcher (home) — Bedrock UI
  * 2. Active source — native WebContentsView (main process); this renderer stays empty
  * 3. Temporary overlays — toast window in main while source is active
  *
@@ -27,13 +27,13 @@ export function App() {
   const goHome = () => {
     setScreen("home");
     setActiveSourceId(null);
-    void window.coosy?.showLauncher();
+    void window.bedrock?.showLauncher();
   };
 
   // Main-process Escape / host transitions (source view has focus).
   useEffect(() => {
-    if (!window.coosy?.onContext) return;
-    return window.coosy.onContext(({ mode, activeSourceId: id }) => {
+    if (!window.bedrock?.onContext) return;
+    return window.bedrock.onContext(({ mode, activeSourceId: id }) => {
       if (mode === "launcher") {
         setScreen("home");
         setActiveSourceId(null);
@@ -48,8 +48,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (screen !== "player" || !window.coosy?.onNav) return;
-    return window.coosy.onNav((action: NavAction) => {
+    if (screen !== "player" || !window.bedrock?.onNav) return;
+    return window.bedrock.onNav((action: NavAction) => {
       if (action === "home" || action === "back") goHome();
     });
   }, [screen]);
@@ -65,7 +65,7 @@ export function App() {
         setLastFocusedSourceId(item.sourceId);
         setActiveSourceId(item.sourceId);
         setScreen("player");
-        void window.coosy?.resumePlaybackHistory(item).catch((error) => {
+        void window.bedrock?.resumePlaybackHistory(item).catch((error) => {
           console.warn("[launcher] saved playback URL could not be opened", error);
           setActiveSourceId(null);
           setScreen("home");
@@ -75,7 +75,7 @@ export function App() {
         setLastFocusedSourceId(id);
         setActiveSourceId(id);
         setScreen("player");
-        void window.coosy?.openSource(id).catch(() => {
+        void window.bedrock?.openSource(id).catch(() => {
           setActiveSourceId(null);
           setScreen("home");
         });

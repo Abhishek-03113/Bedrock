@@ -1,5 +1,5 @@
 import type { BrowserWindow, WebContents } from "electron";
-import type { CommandResult, InputCommand } from "@coosy/shared";
+import type { CommandResult, InputCommand } from "@bedrock/shared";
 import { applyInputCommand, focusForInput, type CursorState } from "./source-input.js";
 import { RemoteCursorOverlay } from "./remote-cursor.js";
 

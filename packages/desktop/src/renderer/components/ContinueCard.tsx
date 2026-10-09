@@ -1,4 +1,4 @@
-import type { PlaybackHistoryItem } from "@coosy/shared";
+import type { PlaybackHistoryItem } from "@bedrock/shared";
 
 export interface ContinueItem extends PlaybackHistoryItem {
   sourceName: string;

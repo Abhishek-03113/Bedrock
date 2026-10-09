@@ -8,8 +8,8 @@ import type {
   SourceCapabilities,
   WsClientMessage,
   WsServerMessage,
-} from "@coosy/shared";
-import { parseInputCommand } from "@coosy/shared";
+} from "@bedrock/shared";
+import { parseInputCommand } from "@bedrock/shared";
 import { listSources, SOURCES } from "./sources/registry.js";
 import type { SourceHost } from "./source-host.js";
 import { authorizeHello } from "./pairing.js";
@@ -36,7 +36,7 @@ export const DEFAULT_REMOTE_PORT = 17832;
 
 const authorized = new WeakSet<WebSocket>();
 
-export function resolveRemotePort(envPort = process.env.COOSY_WS_PORT): number {
+export function resolveRemotePort(envPort = process.env.BEDROCK_WS_PORT ?? process.env.COOSY_WS_PORT /* legacy */): number {
   const n = Number(envPort ?? DEFAULT_REMOTE_PORT);
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_REMOTE_PORT;
 }

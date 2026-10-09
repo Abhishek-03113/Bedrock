@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
-import type { MediaSource, NavAction, RemoteCommand } from "@coosy/shared";
+import type { MediaSource, NavAction, RemoteCommand } from "@bedrock/shared";
 import {
   buildContextMessage,
   resolveRemoteStaticRoot,
@@ -107,7 +107,7 @@ describe("remote server foundation", () => {
   });
 
   it("starts HTTP+WS, serves UI, pairs, forwards nav/commands, shuts down cleanly", async () => {
-    staticRoot = join(tmpdir(), `coosy-remote-${Date.now()}`);
+    staticRoot = join(tmpdir(), `bedrock-remote-${Date.now()}`);
     mkdirSync(staticRoot, { recursive: true });
     writeFileSync(join(staticRoot, "index.html"), "<!doctype html><title>remote</title>");
 
@@ -376,7 +376,7 @@ describe("remote server foundation", () => {
     const missing = await fetch(`http://127.0.0.1:${port}/`);
     expect(missing.status).toBe(503);
 
-    staticRoot = join(tmpdir(), `coosy-remote-safe-${Date.now()}`);
+    staticRoot = join(tmpdir(), `bedrock-remote-safe-${Date.now()}`);
     mkdirSync(staticRoot, { recursive: true });
     writeFileSync(join(staticRoot, "index.html"), "ok");
     await server.close();
@@ -398,7 +398,7 @@ describe("remote server foundation", () => {
   });
 
   it("resolveRemoteStaticRoot finds index.html candidates", () => {
-    staticRoot = join(tmpdir(), `coosy-resolve-${Date.now()}`);
+    staticRoot = join(tmpdir(), `bedrock-resolve-${Date.now()}`);
     const nested = join(staticRoot, "remote");
     mkdirSync(nested, { recursive: true });
     writeFileSync(join(nested, "index.html"), "ui");

@@ -1,4 +1,4 @@
-# PRD — CoOSy (working name)
+# PRD — Bedrock (working name)
 ### A "Big Picture" launcher for web-based media, controlled from your phone
 
 ---
@@ -32,9 +32,9 @@ Just you, v1. Designed for one bachelor engineer with one laptop, one bed, one p
 ## 4. Core user flows
 
 ### Flow A — Casual browse & launch (primary)
-1. Laptop is docked/positioned facing the bed, CoOSy launches full-screen (auto-start on boot or via a hotkey).
+1. Laptop is docked/positioned facing the bed, Bedrock launches full-screen (auto-start on boot or via a hotkey).
 2. Home screen shows: **Continue Watching** shelf (cross-app, if obtainable — see §7 risk) + **Sources** grid (app icons).
-3. User picks up phone, opens `coosy.local` (already bookmarked/PWA-installed) — no login, same LAN.
+3. User picks up phone, opens `bedrock.local` (already bookmarked/PWA-installed) — no login, same LAN.
 4. Phone shows a D-pad. User navigates tiles, presses select.
 5. Laptop loads the target site inside an embedded Chromium view, full-screen, chromeless (no browser URL bar, no tabs).
 6. User does the **first click/login manually via phone as a trackpad** if needed (first-time only, session persists after).

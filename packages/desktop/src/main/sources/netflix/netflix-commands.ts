@@ -1,4 +1,4 @@
-import type { RemoteCommand } from "@coosy/shared";
+import type { RemoteCommand } from "@bedrock/shared";
 
 /**
  * Maps generic RemoteCommand → key codes for Netflix.

@@ -1,4 +1,4 @@
-import type { NavAction } from "@coosy/shared";
+import type { NavAction } from "@bedrock/shared";
 
 /**
  * Pure launcher focus helpers — renderer-owned, no Electron main coupling.

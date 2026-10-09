@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { NavAction, PlaybackHistoryItem } from "@coosy/shared";
+import type { NavAction, PlaybackHistoryItem } from "@bedrock/shared";
 import { SourceTile } from "../components/SourceTile";
 import { ContinueCard } from "../components/ContinueCard";
-import type { ConnectionInfo, SourceListItem } from "../coosy-api";
+import type { ConnectionInfo, SourceListItem } from "../bedrock-api";
 import {
   clampFocusIndex,
   columnCountFromTemplate,
@@ -198,9 +198,9 @@ export function HomeScreen({
   }, [applyNav]);
 
   useEffect(() => {
-    if (!window.coosy?.onNav) return;
+    if (!window.bedrock?.onNav) return;
     perfInc("listener.register");
-    const unsubscribe = window.coosy.onNav((action) => applyNav(action));
+    const unsubscribe = window.bedrock.onNav((action) => applyNav(action));
     return () => {
       unsubscribe();
       perfInc("listener.cleanup");
@@ -228,7 +228,7 @@ export function HomeScreen({
   return (
     <main className="home">
       <header className="home__header">
-        <h1 className="home__brand">Co<span>OSy</span></h1>
+        <h1 className="home__brand">Bed<span>rock</span></h1>
         <div className="home__status" aria-label="Remote is ready to connect">
           <span
             className={

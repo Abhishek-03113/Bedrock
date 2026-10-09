@@ -1,4 +1,4 @@
-/** CoOSy-owned, non-sensitive record of the last playable page per source. */
+/** Bedrock-owned, non-sensitive record of the last playable page per source. */
 export interface PlaybackHistoryItem {
   id: number;
   sourceId: string;

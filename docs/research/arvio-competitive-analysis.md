@@ -16,7 +16,7 @@ published in-app screenshots). Images live in [`arvio/`](arvio/).
 ARVIO is an Android TV / phone / web media hub. It aggregates Jellyfin/Plex/Emby libraries, Trakt, IPTV and
 add-ons into one 10-foot UI. It isn't a direct competitor; it doesn't drive Netflix and the other streaming web apps
 from a laptop. It is the closest consumer-grade reference for a remote-first, "one home for everything" media UI,
-and it looks like a finished product where CoOSy looked like a side project.
+and it looks like a finished product where Bedrock looked like a side project.
 
 ## What makes it read as a product
 
@@ -37,9 +37,9 @@ and it looks like a finished product where CoOSy looked like a side project.
 8. **Copy speaks to people.** "Your media. Beautifully connected.", "From the couch. To wherever." There are no
    IPs, no protocol names, no uppercase status codes.
 
-## Where CoOSy was (before screenshots in [`../screenshots/before/`](../screenshots/before/))
+## Where Bedrock was (before screenshots in [`../screenshots/before/`](../screenshots/before/))
 
-- Brand was a wordmark with odd casing ("CoOSy"). There was no mascot, icon or startup moment.
+- Brand was a wordmark with odd casing ("Bedrock"). There was no mascot, icon or startup moment.
 - Home was a static dashboard: a heading, two oversized logo cards and four small tiles. It had no hero and no
   ambient info (clock), and the decorative ⚙ did nothing.
 - The pairing footer exposed `http://IP:port`, mDNS hostnames and raw codes. It was developer text with no QR code.

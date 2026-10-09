@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SourceInput } from "@coosy/shared";
+import type { SourceInput } from "@bedrock/shared";
 import { NetflixSource } from "./netflix/netflix-source.js";
 import { YoutubeSource } from "./youtube/youtube-source.js";
 import { HotstarSource } from "./hotstar/hotstar-source.js";

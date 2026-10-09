@@ -5,11 +5,13 @@ import type {
   SourceCapabilities,
   WsClientMessage,
   WsServerMessage,
-} from "@coosy/shared";
+} from "@bedrock/shared";
 
 export type ConnectionStatus = "CONNECTED" | "CONNECTING" | "DISCONNECTED";
 
-const CLIENT_ID_KEY = "coosy.remote.clientId";
+const CLIENT_ID_KEY = "bedrock.remote.clientId";
+/** Pre-rename (CoOSy) key; read as a fallback only. */
+const LEGACY_CLIENT_ID_KEY = "coosy.remote.clientId";
 const DEFAULT_REMOTE_PORT = 17832;
 
 type HelloHandler = (
@@ -88,8 +90,13 @@ export function getOrCreateClientId(
   }
 
   try {
-    const existing = store.getItem(CLIENT_ID_KEY);
-    if (existing && existing.length > 0) return existing;
+    const existing =
+      store.getItem(CLIENT_ID_KEY) ?? store.getItem(LEGACY_CLIENT_ID_KEY);
+    if (existing && existing.length > 0) {
+      // Carry a pre-rename id forward so the phone stays paired.
+      store.setItem(CLIENT_ID_KEY, existing);
+      return existing;
+    }
     const id = randomId();
     store.setItem(CLIENT_ID_KEY, id);
     return id;

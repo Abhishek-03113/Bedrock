@@ -1,6 +1,6 @@
 import type { BrowserWindow, WebContentsView } from "electron";
 import { WebContentsView as ElectronWebContentsView } from "electron";
-import type { CommandResult, InputCommand, MediaSource } from "@coosy/shared";
+import type { CommandResult, InputCommand, MediaSource } from "@bedrock/shared";
 import { SOURCES, listSources } from "./sources/registry.js";
 import { touchSource, setAppState, upsertPlayback } from "./db/db.js";
 import {
@@ -345,7 +345,7 @@ export class SourceHost {
 
     const hook = (event: Electron.Event, input: Electron.Input) => {
       if (input.type !== "keyDown") return;
-      // Don't steal bare Escape (Netflix uses it). Cmd/Ctrl+Escape → CoOSy home.
+      // Don't steal bare Escape (Netflix uses it). Cmd/Ctrl+Escape → Bedrock home.
       if (input.key !== "Escape") return;
       if (!(input.meta || input.control)) return;
       if (this.activeSourceId !== sourceId) return;

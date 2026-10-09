@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { RemoteCommand, SourceCapabilities } from "@coosy/shared";
+import type { RemoteCommand, SourceCapabilities } from "@bedrock/shared";
 import type { ConnectionStatus, WsClient } from "../ws-client";
 import { resolveControlAction } from "../remote-actions";
 import { TrackpadSurface } from "../components/TrackpadSurface";
@@ -118,7 +118,7 @@ export function RemoteControls({
     <main className="remote remote--controls" ref={padRef}>
       <header className="remote__header">
         <div className="remote__brand-block">
-          <h1 className="remote__title">CoOSy</h1>
+          <h1 className="remote__title">Bedrock</h1>
           <p className="remote__source" aria-live="polite">
             {contextLabel}
           </p>

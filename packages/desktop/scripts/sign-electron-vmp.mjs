@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Development VMP signing script for CoOSy.
+ * Development VMP signing script for Bedrock.
  *
  * Purpose:
  *   Sign the locally installed Castlabs ECS Electron runtime using the
@@ -132,7 +132,7 @@ function resolveElectronDist() {
 }
 
 async function main() {
-  console.log("[vmp] CoOSy — development Electron VMP signing");
+  console.log("[vmp] Bedrock — development Electron VMP signing");
   console.log("[vmp] platform:", process.platform);
 
   const python = resolvePython();

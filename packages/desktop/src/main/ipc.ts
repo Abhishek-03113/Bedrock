@@ -59,7 +59,7 @@ export function registerIpcHandlers(opts: {
       ip,
       port,
       pairingCode: getOrCreatePairingCode(),
-      mdnsName: "CoOSy",
+      mdnsName: "Bedrock",
       httpUrl: ip ? `http://${ip}:${port}` : null,
       remoteError: opts.getRemoteError?.() ?? null,
     };

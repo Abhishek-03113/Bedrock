@@ -1,4 +1,4 @@
-# CoOSy v1 — Architecture
+# Bedrock v1 — Architecture
 
 ## 1. Purpose of this doc
 
@@ -136,7 +136,7 @@ Any of those would be solving a problem v1 doesn't have (exactly one source, kno
 ## 6. Folder structure (pnpm workspace)
 
 ```
-coosy/
+bedrock/
 ├── packages/
 │   ├── shared/                      # types shared by desktop + remote, zero runtime deps
 │   │   ├── src/
@@ -229,7 +229,7 @@ app_state (
 )
 ```
 
-No per-source tables in v1. Netflix's session data lives in Electron's own `session.partition` storage (cookies/localStorage), not in this schema — CoOSy never touches Netflix credentials, per the stack doc's auth section. This schema only tracks CoOSy's own app-level state (which source was last open, for resume-on-launch).
+No per-source tables in v1. Netflix's session data lives in Electron's own `session.partition` storage (cookies/localStorage), not in this schema — Bedrock never touches Netflix credentials, per the stack doc's auth section. This schema only tracks Bedrock's own app-level state (which source was last open, for resume-on-launch).
 
 ---
 

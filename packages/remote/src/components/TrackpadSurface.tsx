@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { createPointerCoalescer, TRACKPAD_TAP_SLOP, TRACKPAD_TAP_MAX_MS } from '../pointer-coalesce';
 import type { WsClient } from '../ws-client';
-import type { InputCommand } from '@coosy/shared';
+import type { InputCommand } from '@bedrock/shared';
 
 type ConnectionStatus = 'CONNECTED' | 'CONNECTING' | 'DISCONNECTED';
 

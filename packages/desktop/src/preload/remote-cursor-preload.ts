@@ -6,7 +6,7 @@ export interface RemoteCursorUpdate {
   visible: boolean;
 }
 
-contextBridge.exposeInMainWorld("coosyCursor", {
+contextBridge.exposeInMainWorld("bedrockCursor", {
   onUpdate(callback: (state: RemoteCursorUpdate) => void): () => void {
     const listener = (
       _event: Electron.IpcRendererEvent,
@@ -15,10 +15,10 @@ contextBridge.exposeInMainWorld("coosyCursor", {
       callback(state);
     };
 
-    ipcRenderer.on("coosy:remote-cursor", listener);
+    ipcRenderer.on("bedrock:remote-cursor", listener);
 
     return () => {
-      ipcRenderer.removeListener("coosy:remote-cursor", listener);
+      ipcRenderer.removeListener("bedrock:remote-cursor", listener);
     };
   },
 });

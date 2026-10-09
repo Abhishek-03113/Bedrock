@@ -81,7 +81,7 @@ export function handleRemoteStaticRequest(
     sendText(
       res,
       503,
-      "Remote UI not available — build @coosy/remote and restart CoOSy.",
+      "Remote UI not available — build @bedrock/remote and restart Bedrock.",
     );
     return;
   }

@@ -1,4 +1,4 @@
-# CoOSy
+# Bedrock
 
 Big Picture-style launcher for web media, controlled from your phone.
 
@@ -28,7 +28,7 @@ packages/
 
 ```bash
 pnpm install
-pnpm --filter @coosy/shared build
+pnpm --filter @bedrock/shared build
 ```
 
 ## Scripts
@@ -39,7 +39,7 @@ pnpm --filter @coosy/shared build
 | `pnpm typecheck` | Typecheck workspace packages |
 | `pnpm build` | Build workspace packages |
 
-> Prefer filtering to in-scope packages: `pnpm --filter @coosy/shared --filter @coosy/desktop …`
+> Prefer filtering to in-scope packages: `pnpm --filter @bedrock/shared --filter @bedrock/desktop …`
 
 ## v1 bar
 
