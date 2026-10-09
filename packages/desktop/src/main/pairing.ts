@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { getAppState, setAppState } from "./db/db.js";
 
 const PAIRING_CODE_KEY = "pairing_code";
@@ -6,7 +7,7 @@ const TRUSTED_CLIENTS_KEY = "trusted_clients";
 function randomDigits(length: number): string {
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += String(Math.floor(Math.random() * 10));
+    out += String(randomInt(0, 10));
   }
   return out;
 }
