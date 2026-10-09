@@ -141,6 +141,30 @@ export default async function vmpSign(context) {
   // For Windows this is the win-unpacked directory containing the ECS runtime.
   // Do NOT sign the NSIS installer .exe itself — EVS VMP operates on the
   // Electron runtime directory, not the final installer artifact.
+  
+  // IMPORTANT: Cross-platform signing limitation
+  // When building Windows from macOS, electron-builder copies the macOS Electron
+  // structure. EVS VMP signing MUST run on the target platform to sign the actual
+  // binaries that will run (Windows .exe/.dll, macOS .app).
+  // Cross-platform builds will sign the wrong platform's binaries.
+  if (process.platform !== electronPlatformName) {
+    const msg =
+      `[vmp] WARNING: Building ${electronPlatformName} from ${process.platform}\n` +
+      "      EVS VMP signing may not work correctly for cross-platform builds.\n" +
+      "      For production Netflix/DRM support, build on the target platform.\n" +
+      `      - Windows: Build on Windows\n` +
+      `      - macOS: Build on macOS\n` +
+      "      Attempting to sign anyway (may sign wrong platform binaries)...";
+    
+    console.warn(msg);
+    
+    if (requireSigning) {
+      throw new Error(
+        msg + "\n      Set COOSY_REQUIRE_VMP_SIGNING=0 to allow cross-platform builds without VMP."
+      );
+    }
+  }
+  
   const signingTarget = appOutDir;
   console.log("[vmp] signing application directory:", signingTarget);
 
