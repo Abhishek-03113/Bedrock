@@ -77,11 +77,14 @@ export function Clickpad({ client, status, onToast }: ClickpadProps) {
     coalescer.current = createPointerCoalescer({
       send: (cmd) => sendInput(cmd),
       isActive: () => statusRef.current === "CONNECTED",
+      // Backpressure: on congested Wi-Fi, moves would otherwise pile up in the
+      // socket buffer and cursor lag would grow without bound.
+      canSend: () => client.bufferedAmount < 4096,
     });
     return () => {
       coalescer.current?.dispose();
     };
-  }, [sendInput]);
+  }, [sendInput, client]);
 
   useEffect(() => {
     const el = surfaceRef.current;
@@ -199,6 +202,8 @@ export function Clickpad({ client, status, onToast }: ClickpadProps) {
       } catch {
         /* best-effort */
       }
+      // Push out any pending move first so the click can't overtake it.
+      coalescer.current?.flush({ force: true });
       sendInput({ type: "pointer-click", button: "left" }, true);
     }
   };
