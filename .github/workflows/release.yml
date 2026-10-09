@@ -1,0 +1,333 @@
+name: Release
+
+# Builds signed desktop installers (Windows NSIS, macOS DMG/ZIP, optional Linux
+# AppImage) with Castlabs EVS VMP signing, then drafts a GitHub Release.
+# See docs/release-ci.md for setup, secrets and the signing-order rationale.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      require_vmp:
+        description: "Fail the build if Castlabs EVS VMP signing is unavailable or fails (Windows/macOS)"
+        type: boolean
+        default: true
+      include_linux:
+        description: "Also build the (never VMP-signed) Linux AppImage"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Emits the build matrix. Linux is included on tag pushes and when requested
+  # via workflow_dispatch.include_linux.
+  setup:
+    name: Compute build matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Compute matrix
+        id: matrix
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          INPUT_INCLUDE_LINUX: ${{ inputs.include_linux }}
+        run: |
+          set -euo pipefail
+          win='{"name":"windows-x64","os":"windows-latest","vmp":true,"args":"--win nsis --x64"}'
+          mac='{"name":"macos-arm64","os":"macos-latest","vmp":true,"args":"--mac dmg zip --arm64"}'
+          linux='{"name":"linux-x64","os":"ubuntu-latest","vmp":false,"args":"--linux AppImage --x64"}'
+          include="$win,$mac"
+          if { [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; } || [ "$INPUT_INCLUDE_LINUX" = "true" ]; then
+            include="$include,$linux"
+          fi
+          echo "matrix={\"include\":[$include]}" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"include\":[$include]}"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    # Secrets live in the "release" GitHub Environment (Settings -> Environments).
+    # Referencing a missing environment auto-creates it (no protection rules);
+    # secrets then fall back to repository-level secrets of the same name.
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Same relative cache dirs on every OS (the .cache/ dir is git-ignored).
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      PYTHONUTF8: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- VMP gate (runs first so a missing secret fails in seconds) -------
+      - name: VMP gate
+        id: gate
+        env:
+          IS_VMP_ROW: ${{ matrix.vmp }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          INPUT_REQUIRE_VMP: ${{ inputs.require_vmp }}
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+        run: |
+          set -euo pipefail
+          require=0
+          vmp_auth=false
+          if [ "$IS_VMP_ROW" = "true" ]; then
+            if [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
+              require=1
+            elif [ "$INPUT_REQUIRE_VMP" = "true" ]; then
+              require=1
+            fi
+            if [ -n "$EVS_ACCOUNT_NAME" ] && [ -n "$EVS_PASSWD" ]; then
+              vmp_auth=true
+            elif [ "$require" = "1" ]; then
+              echo "::error title=EVS credentials missing::VMP signing is required for this run but the EVS_ACCOUNT_NAME / EVS_PASSWD secrets are empty. Add them to the 'release' environment (or repo secrets), or re-run via workflow_dispatch with require_vmp=false for a dev-signed dry run."
+              exit 1
+            else
+              echo "::warning title=VMP signing skipped::EVS_ACCOUNT_NAME / EVS_PASSWD are not set; this build will ship the Castlabs development-signed runtime (not production VMP-signed)."
+            fi
+          else
+            echo "VMP not applicable on this row (${RUNNER_OS})."
+          fi
+          echo "vmp_auth=$vmp_auth" >> "$GITHUB_OUTPUT"
+          echo "BEDROCK_REQUIRE_VMP_SIGNING=$require" >> "$GITHUB_ENV"
+          if [ "$vmp_auth" = "true" ]; then
+            echo "BEDROCK_PYTHON=python" >> "$GITHUB_ENV"
+          fi
+          echo "require=$require vmp_auth=$vmp_auth"
+
+      - name: Check tag matches app version
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        working-directory: packages/desktop
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$pkg" ]; then
+            echo "::warning title=Tag/version mismatch::Tag $TAG does not match packages/desktop/package.json version $pkg. Installer file names use the package.json version."
+          fi
+
+      # ---- Toolchain ----------------------------------------------------------
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Python (EVS)
+        if: steps.gate.outputs.vmp_auth == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: packages/desktop/scripts/requirements-evs.txt
+
+      # Electron / electron-builder download caches. Restored before install
+      # because the castlabs electron postinstall downloads the binary.
+      # NOTE: the EVS config directory is deliberately never cached.
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-electron-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ---- Fast gate + app build ---------------------------------------------
+      # Tests run under Node (better-sqlite3 built for the Node ABI), so they
+      # must run BEFORE the native rebuild against the Electron ABI below.
+      # @bedrock/shared resolves to dist/ and is not committed, so build it first.
+      - name: Build shared package
+        run: pnpm --filter @bedrock/shared build
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test desktop
+        run: pnpm --filter @bedrock/desktop test
+
+      - name: Test remote
+        run: pnpm --filter @bedrock/remote test
+
+      - name: Build app
+        run: pnpm --filter @bedrock/desktop build
+
+      # electron-builder.yml has npmRebuild: false, so rebuild native modules
+      # (better-sqlite3) against the Castlabs ECS ABI ourselves.
+      # Assumption: castlabs publishes node headers as a release asset at
+      #   .../electron-releases/releases/download/v<ver>/node-v<ver>-headers.tar.gz
+      # If not reachable, fall back to the upstream Electron headers for the
+      # same base version (identical Node ABI).
+      - name: Rebuild native modules for Castlabs ECS
+        working-directory: packages/desktop
+        run: |
+          set -euo pipefail
+          ecs="$(node -p "require('./package.json').devDependencies.electron.split('#v')[1]")"
+          dist="https://github.com/castlabs/electron-releases/releases/download"
+          probe="$dist/v${ecs}/node-v${ecs}-headers.tar.gz"
+          echo "ECS version: $ecs"
+          if curl -fsL --retry 3 -r 0-0 -o /dev/null "$probe"; then
+            pnpm exec electron-rebuild -f -w better-sqlite3 -v "$ecs" -d "$dist"
+          else
+            base="${ecs%%+*}"
+            echo "::warning title=Castlabs headers not found::$probe is not reachable; rebuilding against upstream Electron $base headers (same Node ABI)."
+            pnpm exec electron-rebuild -f -w better-sqlite3 -v "$base"
+          fi
+
+      # ---- EVS auth ------------------------------------------------------------
+      - name: Authenticate Castlabs EVS
+        if: steps.gate.outputs.vmp_auth == 'true'
+        env:
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+        run: |
+          set -euo pipefail
+          python -m pip install -r packages/desktop/scripts/requirements-evs.txt
+          python -m castlabs_evs.account -n refresh -A "$EVS_ACCOUNT_NAME" -P "$EVS_PASSWD"
+
+      # ---- Package (+ OS code signing, VMP via electron-builder hooks) ---------
+      # macOS: afterPack (VMP) -> codesign -> notarize.
+      # Windows: Authenticode -> afterSign (VMP) -> NSIS.
+      - name: Package
+        env:
+          BUILDER_ARGS: ${{ matrix.args }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          IN_APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          IN_APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          # Only export what is actually set: electron-builder misbehaves on
+          # empty-string CSC_LINK / APPLE_* variables.
+          unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+
+          case "$RUNNER_OS" in
+            Windows)
+              if [ -n "$WIN_CSC_LINK" ]; then
+                export CSC_LINK="$WIN_CSC_LINK"
+                if [ -n "$WIN_CSC_KEY_PASSWORD" ]; then export CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"; fi
+              else
+                echo "::warning title=Windows Authenticode unsigned::WIN_CSC_LINK is not set; the installer and exe are NOT Authenticode-signed (SmartScreen warnings). VMP signing still applies."
+              fi
+              ;;
+            macOS)
+              if [ -n "$MAC_CSC_LINK" ]; then
+                export CSC_LINK="$MAC_CSC_LINK"
+                if [ -n "$MAC_CSC_KEY_PASSWORD" ]; then export CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD"; fi
+
+                # Notarization credentials: API key preferred, Apple ID as fallback.
+                if [ -n "$APPLE_API_KEY_P8" ] && [ -n "$IN_APPLE_API_KEY_ID" ] && [ -n "$IN_APPLE_API_ISSUER" ]; then
+                  keyfile="$RUNNER_TEMP/AuthKey.p8"
+                  umask 077
+                  printf '%s\n' "$APPLE_API_KEY_P8" > "$keyfile"
+                  export APPLE_API_KEY="$keyfile" APPLE_API_KEY_ID="$IN_APPLE_API_KEY_ID" APPLE_API_ISSUER="$IN_APPLE_API_ISSUER"
+                elif [ -n "$IN_APPLE_ID" ] && [ -n "$IN_APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$IN_APPLE_TEAM_ID" ]; then
+                  export APPLE_ID="$IN_APPLE_ID" APPLE_APP_SPECIFIC_PASSWORD="$IN_APPLE_APP_SPECIFIC_PASSWORD" APPLE_TEAM_ID="$IN_APPLE_TEAM_ID"
+                else
+                  echo "::warning title=macOS not notarized::No complete notarization credentials (APPLE_API_KEY_P8 + APPLE_API_KEY_ID + APPLE_API_ISSUER, or APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID). The app is signed but NOT notarized; Gatekeeper will block it on other Macs."
+                fi
+              else
+                # Never let electron-builder pick up a random identity from the runner keychain.
+                export CSC_IDENTITY_AUTO_DISCOVERY=false
+                echo "::warning title=macOS unsigned::MAC_CSC_LINK is not set; the app is NOT code-signed or notarized. VMP signing still applies."
+              fi
+              ;;
+          esac
+
+          # shellcheck disable=SC2086  # BUILDER_ARGS is a deliberate word-split flag list from our own matrix
+          pnpm --filter @bedrock/desktop exec electron-builder $BUILDER_ARGS --publish never
+
+      - name: Clean up signing material
+        if: always() && runner.os == 'macOS'
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bedrock-${{ matrix.name }}
+          path: |
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.AppImage
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/latest*.yml
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Draft GitHub Release
+    needs: build
+    # Only real tag pushes publish a draft; dispatch runs just produce artifacts.
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: bedrock-*
+          merge-multiple: true
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -la dist
+          shopt -s nullglob
+          files=(dist/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No artifacts downloaded."
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG exists — uploading (clobber)."
+            gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            flags=(--draft --generate-notes --verify-tag)
+            case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+            gh release create "$TAG" "${files[@]}" "${flags[@]}" --title "Bedrock $TAG" --repo "$GITHUB_REPOSITORY"
+          fi

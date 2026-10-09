@@ -112,15 +112,17 @@ The production workflow:
 ```
 electron-builder packs application
         ↓
-afterPack hook runs (scripts/vmp-sign.mjs)
+macOS:   afterPack hook (scripts/vmp-after-pack.mjs) -> VMP sign-pkg
+         then Apple codesign + notarization
+Windows: Authenticode signing, then
+         afterSign hook (scripts/vmp-after-sign.mjs) -> VMP sign-pkg
         ↓
-castlabs_evs.vmp sign-pkg <appOutDir>
-        ↓
-Electron runtime in appOutDir carries production VMP signature
-        ↓
-NSIS installer assembled around the signed runtime
+NSIS / DMG assembled around the signed runtime
         ↓
 Distribution
+
+(VMP must come BEFORE Apple codesign on macOS and AFTER Authenticode on
+Windows. Shared logic lives in scripts/vmp-sign.mjs. CI: see release-ci.md.)
 ```
 
 ---
@@ -228,7 +230,8 @@ Normal `pnpm dev` does NOT call EVS. Signing is an explicit developer step.
 # 1. Build the application assets
 pnpm --filter @bedrock/desktop build
 
-# 2. Package — electron-builder calls vmp-sign.mjs via afterPack
+# 2. Package — electron-builder calls the VMP hooks (afterPack on macOS,
+#    afterSign on Windows)
 pnpm --filter @bedrock/desktop package:win
 ```
 
@@ -241,15 +244,20 @@ export BEDROCK_REQUIRE_VMP_SIGNING=1
 pnpm --filter @bedrock/desktop package:win
 ```
 
-Without `BEDROCK_REQUIRE_VMP_SIGNING=1`, the afterPack hook will warn if EVS is
+Without `BEDROCK_REQUIRE_VMP_SIGNING=1`, the VMP hooks will warn if EVS is
 unavailable but will NOT fail the build. This allows unsigned development builds.
-With the flag set, missing EVS credentials fail the build immediately.
+With the flag set, missing EVS credentials fail the build immediately, and the
+signed directory is additionally checked with `castlabs_evs.vmp verify-pkg`.
+Optional: `BEDROCK_VMP_PERSISTENT=1` (persistent signing) and `BEDROCK_PYTHON`
+(force the interpreter).
 
 ### CI environments
 
-Store EVS credentials using your CI system's secret storage. The EVS CLI reads
-from its local configuration file — consult Castlabs documentation for CI
-authentication options. **Never** store EVS tokens in the repository.
+Store EVS credentials using your CI system's secret storage and authenticate
+non-interactively with
+`python -m castlabs_evs.account -n refresh -A "$EVS_ACCOUNT_NAME" -P "$EVS_PASSWD"`.
+See [release-ci.md](release-ci.md) for the GitHub Actions release workflow.
+**Never** store EVS tokens in the repository.
 
 ---
 
@@ -264,11 +272,16 @@ There are three distinct signing concepts. They are NOT the same thing:
 | **NSIS installer signing** | installer .exe | End-user download trust |
 
 EVS VMP signing is applied to the **unpacked application directory** before the
-NSIS installer is assembled (`afterPack` hook). The NSIS installer itself is a
-separate signing step using a Windows Authenticode certificate — EVS VMP does not
-provide this.
+NSIS installer is assembled. On Windows it runs in the electron-builder
+`afterSign` hook (`scripts/vmp-after-sign.mjs`), i.e. **after** Authenticode
+signing of the .exe/.dll files (Authenticode after VMP would invalidate VMP). On
+macOS it runs in `afterPack` (`scripts/vmp-after-pack.mjs`), **before** Apple
+codesign. The NSIS installer itself is a separate signing step using a Windows
+Authenticode certificate — EVS VMP does not provide this.
 
-Bedrock's `scripts/vmp-sign.mjs` handles EVS VMP only.
+Bedrock's `scripts/vmp-sign.mjs` is the shared EVS VMP core used by both hooks.
+Note: electron-builder skips `afterSign` when Windows signing is disabled
+(`win.signAndEditExecutable: false`), which would silently skip VMP.
 
 To enable Windows Authenticode signing, set `CSC_LINK` and `CSC_KEY_PASSWORD`
 environment variables with a valid Windows code-signing certificate. See

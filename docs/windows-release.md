@@ -106,8 +106,10 @@ export BEDROCK_REQUIRE_VMP_SIGNING=1
 pnpm --filter @bedrock/desktop package:win
 ```
 
-The `afterPack` hook (`scripts/vmp-sign.mjs`) runs automatically during
-`package:win`. When `BEDROCK_REQUIRE_VMP_SIGNING=1`, signing failure aborts the
+The `afterSign` hook (`scripts/vmp-after-sign.mjs`, shared core in
+`scripts/vmp-sign.mjs`) runs automatically during `package:win`, after
+Authenticode signing and before the NSIS installer is assembled (VMP must follow
+Authenticode on Windows). When `BEDROCK_REQUIRE_VMP_SIGNING=1`, signing failure aborts the
 build. Without the flag, missing EVS credentials produce a warning and the build
 continues with the Castlabs development-signed runtime.
 
@@ -193,6 +195,10 @@ electron-builder will sign automatically when these are present.
 
 **Note:** Windows Authenticode signing is completely separate from EVS VMP
 signing. Authenticode = Windows OS trust. EVS VMP = Widevine DRM client trust.
+Order matters: Authenticode first, then VMP (`afterSign`).
+
+Automated builds: see [release-ci.md](release-ci.md) for the GitHub Actions
+release workflow (secrets, gates, draft releases).
 
 ---
 

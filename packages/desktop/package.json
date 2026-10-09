@@ -10,14 +10,16 @@
     "preview": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "clean": "rm -rf out dist release",
-    "rebuild-native": "electron-rebuild -v 42.8.0+wvcus -d https://github.com/castlabs/electron-releases/releases/download/v",
+    "rebuild-native": "electron-rebuild -f -w better-sqlite3 -v 42.8.0+wvcus -d https://github.com/castlabs/electron-releases/releases/download",
     "ws-smoke": "node ./scripts/ws-smoke.mjs",
     "assets:logos": "node ./scripts/fetch-source-logos.mjs",
     "copy-remote-ui": "node ./scripts/copy-remote-ui.mjs",
     "test": "vitest run",
     "drm:sign:electron": "node ./scripts/sign-electron-vmp.mjs",
     "package:win:dir": "electron-builder --dir --win --x64",
-    "package:win": "electron-builder --win nsis --x64"
+    "package:win": "electron-builder --win nsis --x64",
+    "package:mac": "electron-builder --mac dmg zip --arm64",
+    "package:linux": "electron-builder --linux AppImage --x64"
   },
   "dependencies": {
     "@bedrock/shared": "workspace:*",

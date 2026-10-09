@@ -24,16 +24,28 @@ files:
   # Remote phone UI (HTTP static) — produced by scripts/copy-remote-ui.mjs
   - out/remote/**/*
 
-# afterPack runs after electron-builder unpacks the app but before creating the installer.
-# This is the correct point to run EVS VMP signing on the application directory.
-# The hook reads BEDROCK_REQUIRE_VMP_SIGNING to decide if missing credentials are fatal.
-afterPack: scripts/vmp-sign.mjs
+# Castlabs EVS VMP signing is split by platform because the ordering differs:
+#   macOS:   VMP must run BEFORE Apple codesign  -> afterPack (darwin only)
+#   Windows: VMP must run AFTER Authenticode     -> afterSign (win32 only)
+# Both hooks read BEDROCK_REQUIRE_VMP_SIGNING to decide if failures are fatal.
+# See docs/release-ci.md.
+afterPack: scripts/vmp-after-pack.mjs
+afterSign: scripts/vmp-after-sign.mjs
 
 mac:
   category: public.app-category.entertainment
   target:
     - dmg
     - zip
+  # Notarization requires the hardened runtime + entitlements below.
+  # Signing happens only if a Developer ID identity is available (CSC_LINK /
+  # keychain); notarization happens automatically when APPLE_API_KEY(+_ID,
+  # +_ISSUER) or APPLE_ID(+APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID) are set.
+  # Without them local builds stay unsigned / non-notarized and still work.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
 linux:
   category: AudioVideo
