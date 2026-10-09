@@ -35,6 +35,7 @@ const OPEN_CORS: Record<string, string> = {
 
 function safeJoin(root: string, requestPath: string): string | null {
   const decoded = decodeURIComponent(requestPath.split("?")[0] ?? "/");
+  if (decoded.includes("\0")) return null;
   const cleaned = decoded.replace(/^\/+/, "");
   const candidate = normalize(join(root, cleaned || "index.html"));
   const rootResolved = resolve(root);
@@ -93,7 +94,14 @@ export function handleRemoteStaticRequest(
     return;
   }
 
-  let filePath = safeJoin(staticRoot, urlPath);
+  let filePath: string | null;
+  try {
+    filePath = safeJoin(staticRoot, urlPath);
+  } catch {
+    // Malformed percent-encoding (e.g. "/%E0%A4%A") makes decodeURIComponent throw.
+    sendText(res, 400, "Bad Request");
+    return;
+  }
   if (!filePath) {
     sendText(res, 403, "Forbidden");
     return;
