@@ -4,6 +4,8 @@ export type {
   CommandFailureReason,
 } from "./commands.js";
 
+export { parseRemoteCommand } from "./commands.js";
+
 export type {
   InputCommand,
   InputCommandType,
@@ -34,6 +36,8 @@ export type {
   NavAction,
   RemoteSourceSummary,
 } from "./ws-protocol.js";
+
+export { parseNavAction } from "./ws-protocol.js";
 
 export {
   describeCommand,

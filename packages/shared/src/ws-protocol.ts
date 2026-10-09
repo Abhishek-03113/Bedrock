@@ -23,6 +23,26 @@ export type NavAction =
   | "back"
   | "home";
 
+const NAV_ACTIONS: readonly NavAction[] = [
+  "up",
+  "down",
+  "left",
+  "right",
+  "select",
+  "back",
+  "home",
+];
+
+/**
+ * Narrow unknown JSON into NavAction. Returns null when malformed.
+ */
+export function parseNavAction(raw: unknown): NavAction | null {
+  if (typeof raw !== "string") return null;
+  return (NAV_ACTIONS as readonly string[]).includes(raw)
+    ? (raw as NavAction)
+    : null;
+}
+
 /** Minimal source list for the phone remote chrome — not a full catalog payload. */
 export interface RemoteSourceSummary {
   id: string;
