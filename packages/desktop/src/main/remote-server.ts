@@ -51,6 +51,8 @@ const authorized = new WeakSet<WebSocket>();
 /** Pre-auth messages are tiny JSON; ws defaults to 100 MiB which is a memory DoS. */
 const MAX_WS_PAYLOAD = 64 * 1024;
 const AUTH_DEADLINE_MS = 10_000;
+/** A phone showing the pairing screen (sent a code-less hello) may wait this long for the user to type. */
+const PAIRING_WAIT_DEADLINE_MS = 5 * 60_000;
 const MAX_FAILED_HELLOS_PER_SOCKET = 5;
 const MAX_FAILED_HELLOS_PER_IP = 10;
 const FAILED_HELLO_WINDOW_MS = 60_000;
@@ -159,6 +161,8 @@ interface MessageContext {
   limiter: HelloFailureLimiter;
   remoteIp: string;
   onAuthenticated: () => void;
+  /** Re-arm the unauthenticated-socket deadline (e.g. while waiting on the pairing screen). */
+  extendAuthDeadline: (ms: number) => void;
 }
 
 export function resolveRemotePort(envPort = process.env.BEDROCK_WS_PORT ?? process.env.COOSY_WS_PORT /* legacy */): number {
@@ -316,11 +320,15 @@ export async function startRemoteServer(
     clients.add(socket);
     conns.set(socket, state);
 
-    state.authTimer = setTimeout(() => {
-      state.authTimer = null;
-      if (!authorized.has(socket)) socket.close(1008, "pairing timeout");
-    }, AUTH_DEADLINE_MS);
-    state.authTimer.unref();
+    const armAuthDeadline = (ms: number) => {
+      if (state.authTimer) clearTimeout(state.authTimer);
+      state.authTimer = setTimeout(() => {
+        state.authTimer = null;
+        if (!authorized.has(socket)) socket.close(1008, "pairing timeout");
+      }, ms);
+      state.authTimer.unref();
+    };
+    armAuthDeadline(AUTH_DEADLINE_MS);
 
     socket.on("pong", () => {
       state.alive = true;
@@ -344,6 +352,9 @@ export async function startRemoteServer(
       onAuthenticated: () => {
         if (state.authTimer) clearTimeout(state.authTimer);
         state.authTimer = null;
+      },
+      extendAuthDeadline: (ms) => {
+        if (!authorized.has(socket)) armAuthDeadline(ms);
       },
     };
 
@@ -493,6 +504,14 @@ async function handleMessage(
       typeof message.pairingCode === "string" ? message.pairingCode : undefined;
     const auth = authorizeHello({ clientId, pairingCode });
     if (!auth.ok) {
+      if (pairingCode === undefined) {
+        // Not a guess: an untrusted phone asking to pair. Don't count it toward
+        // the brute-force limits, and give the user time to type the code.
+        authorized.delete(socket);
+        send(socket, { kind: "error", message: auth.reason });
+        ctx.extendAuthDeadline(PAIRING_WAIT_DEADLINE_MS);
+        return;
+      }
       failHello(socket, ctx, auth.reason);
       return;
     }
