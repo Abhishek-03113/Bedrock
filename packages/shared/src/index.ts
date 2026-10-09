@@ -34,3 +34,10 @@ export type {
   NavAction,
   RemoteSourceSummary,
 } from "./ws-protocol.js";
+
+export {
+  describeCommand,
+  describeFailure,
+  describeInput,
+  describeNav,
+} from "./feedback.js";

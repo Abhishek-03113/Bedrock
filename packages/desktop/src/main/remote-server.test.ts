@@ -182,7 +182,7 @@ describe("remote server foundation", () => {
         action: "home",
       }),
     );
-    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "nav:home");
+    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "Home");
     expect(navActions).toContain("home");
 
     ws.send(
@@ -192,7 +192,7 @@ describe("remote server foundation", () => {
         action: "select",
       }),
     );
-    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "nav:select");
+    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "Selected");
     expect(navActions).toContain("select");
 
     ws.send(
@@ -202,7 +202,7 @@ describe("remote server foundation", () => {
         action: "up",
       }),
     );
-    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "nav:up");
+    await waitForMessage(ws, (m) => m.kind === "toast" && m.message === "Up");
 
     // Media command without active source → honest failure
     ws.send(
@@ -326,7 +326,7 @@ describe("remote server foundation", () => {
     );
     await waitForMessage(
       ws,
-      (m) => m.kind === "toast" && m.message === "nav:home",
+      (m) => m.kind === "toast" && m.message === "Home",
     );
     expect(navActions).toContain("home");
 
