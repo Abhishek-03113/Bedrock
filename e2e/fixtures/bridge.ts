@@ -22,10 +22,22 @@ export interface RecordedCall {
 
 export type MockNavAction = "up" | "down" | "left" | "right" | "select" | "back" | "home";
 
-const ARTWORK_COLORS = ["#F36425", "#0E2C5A", "#BCE772"];
+const ARTWORK_PALETTES: [string, string, string][] = [
+  ["#1b2a6b", "#c2410c", "#fbbf24"],
+  ["#0f3d3e", "#7c3aed", "#34d399"],
+  ["#3b0764", "#db2777", "#fb923c"],
+];
 
+/** 16:9 data-URI "poster": layered gradient sky, sun and ridges (stands in for CDN artwork). */
 function artwork(i: number): string {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='320' height='180'><rect width='320' height='180' fill='${ARTWORK_COLORS[i % 3]}'/></svg>`;
+  const [a, b, c] = ARTWORK_PALETTES[i % ARTWORK_PALETTES.length]!;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720' viewBox='0 0 1280 720'>
+<defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${a}'/><stop offset='1' stop-color='${b}'/></linearGradient>
+<radialGradient id='g' cx='0.7' cy='0.45' r='0.35'><stop offset='0' stop-color='${c}' stop-opacity='1'/><stop offset='1' stop-color='${c}' stop-opacity='0'/></radialGradient></defs>
+<rect width='1280' height='720' fill='url(#s)'/><rect width='1280' height='720' fill='url(#g)'/>
+<circle cx='900' cy='320' r='70' fill='${c}'/>
+<path d='M0 520 L240 360 L420 480 L640 300 L900 500 L1100 400 L1280 520 L1280 720 L0 720Z' fill='#0b1020' fill-opacity='0.82'/>
+<path d='M0 620 L300 500 L560 600 L860 520 L1280 640 L1280 720 L0 720Z' fill='#05070f'/></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
