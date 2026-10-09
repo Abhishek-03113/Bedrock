@@ -3,9 +3,10 @@ node_modules/
 .pnpm-store/
 .pnpm-debug.log*
 npm-debug.log*
+package-lock.json
+!e2e/package-lock.json
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 yarn.lock
 
 # Build outputs
@@ -71,3 +72,8 @@ temp/
 .parcel-cache/
 .vercel/
 .netlify/
+
+# e2e harness (standalone npm project)
+e2e/node_modules
+e2e/test-results
+e2e/playwright-report
