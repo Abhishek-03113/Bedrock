@@ -1,42 +1,25 @@
-import { Component, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import type {
-  RemoteSourceSummary,
-  SourceCapabilities,
-} from "@bedrock/shared";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { RemoteSourceSummary, SourceCapabilities } from "@bedrock/shared";
 import { RemoteControls } from "./screens/RemoteControls";
-import { useRemoteToast } from "./use-remote-toast";
-import {
-  createWsClient,
-  resolveWsUrl,
-  type ConnectionStatus,
-  type WsClient,
-} from "./ws-client";
+import { BootScreen, ConnectingScreen, ErrorScreen, PairingScreen } from "./screens/Onboarding";
+import { useRemoteToast, type RemoteToast } from "./use-remote-toast";
+import { createWsClient, resolveWsUrl, type ConnectionStatus, type WsClient } from "./ws-client";
 
 type Mode = "launcher" | "player";
 
-class RemoteErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: string | null }
-> {
+/** Same message twice inside this window is one HUD, not two (server + local feedback). */
+const HUD_DEDUPE_MS = 800;
+const HUD_DISMISS_MS = 1400;
+
+class RemoteErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null as string | null };
 
   static getDerivedStateFromError(error: unknown) {
-    return {
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 
   render() {
-    if (this.state.error) {
-      return (
-        <main className="remote remote--status">
-          <h1>Bedrock</h1>
-          <p className="remote__status remote__status--disconnected">ERROR</p>
-          <p className="remote__error">{this.state.error}</p>
-          <p className="remote__hint">Refresh the page after restarting Bedrock on the laptop.</p>
-        </main>
-      );
-    }
+    if (this.state.error) return <ErrorScreen message={this.state.error} />;
     return this.props.children;
   }
 }
@@ -47,14 +30,26 @@ function RemoteApp() {
   const [mode, setMode] = useState<Mode>("launcher");
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [sources, setSources] = useState<RemoteSourceSummary[]>([]);
-  const [capabilities, setCapabilities] = useState<SourceCapabilities | null>(
-    null,
-  );
+  const [capabilities, setCapabilities] = useState<SourceCapabilities | null>(null);
   const [needsPairing, setNeedsPairing] = useState(false);
-  const [pairingCode, setPairingCode] = useState("");
-  const [pairingError, setPairingError] = useState<string | null>(null);
+  const [paired, setPaired] = useState(false);
+  const [pairBusy, setPairBusy] = useState(false);
+  const [pairErrorTick, setPairErrorTick] = useState(0);
   const [bootError, setBootError] = useState<string | null>(null);
-  const { toast, show: showToast, clear: clearToast } = useRemoteToast();
+  const awaitingPair = useRef(false);
+  const { toast, show, clear: clearToast } = useRemoteToast(HUD_DISMISS_MS);
+
+  const lastToast = useRef<{ message: string; at: number } | null>(null);
+  const showToast = useCallback(
+    (next: RemoteToast) => {
+      const now = Date.now();
+      const last = lastToast.current;
+      if (last && last.message === next.message && now - last.at < HUD_DEDUPE_MS) return;
+      lastToast.current = { message: next.message, at: now };
+      show(next);
+    },
+    [show],
+  );
 
   useEffect(() => {
     try {
@@ -69,8 +64,10 @@ function RemoteApp() {
       ws.onStatus(setStatus);
 
       ws.onHello((ack) => {
+        awaitingPair.current = false;
+        setPairBusy(false);
         setNeedsPairing(false);
-        setPairingError(null);
+        setPaired(true);
         setCapabilities(ack.capabilities);
         setActiveSourceId(ack.activeSourceId);
         setMode(ack.mode ?? (ack.activeSourceId ? "player" : "launcher"));
@@ -88,15 +85,17 @@ function RemoteApp() {
       ws.onError((message) => {
         if (message.includes("pairing") || message.includes("not paired")) {
           setNeedsPairing(true);
-          setPairingError(message);
+          if (awaitingPair.current) {
+            awaitingPair.current = false;
+            setPairBusy(false);
+            setPairErrorTick((t) => t + 1);
+          }
         } else {
           showToast({ message, ok: false });
         }
       });
 
-      ws.onToast((payload) => {
-        showToast(payload);
-      });
+      ws.onToast((payload) => showToast(payload));
 
       setClient(ws);
       return () => ws.close();
@@ -110,27 +109,20 @@ function RemoteApp() {
 
   const activeSourceName = useMemo(() => {
     if (!activeSourceId) return null;
-    return (
-      sources.find((s) => s.id === activeSourceId)?.displayName ?? activeSourceId
-    );
+    return sources.find((s) => s.id === activeSourceId)?.displayName ?? activeSourceId;
   }, [activeSourceId, sources]);
 
-  const submitPairing = (event: FormEvent) => {
-    event.preventDefault();
-    client?.setPairingCode(pairingCode);
+  const submitPairing = (code: string) => {
+    awaitingPair.current = true;
+    setPairBusy(true);
+    client?.setPairingCode(code);
   };
 
-  if (bootError) {
-    return (
-      <main className="remote remote--status">
-        <h1>Bedrock</h1>
-        <p className="remote__status remote__status--disconnected">ERROR</p>
-        <p className="remote__error">{bootError}</p>
-      </main>
-    );
-  }
+  if (bootError) return <ErrorScreen message={bootError} />;
+  if (!client) return <BootScreen />;
 
-  if (status === "CONNECTED" && client && !needsPairing) {
+  // An already-paired session that drops keeps the remote on screen with a banner.
+  if (paired && !needsPairing) {
     return (
       <RemoteControls
         client={client}
@@ -144,50 +136,11 @@ function RemoteApp() {
     );
   }
 
-  return (
-    <main className="remote remote--status">
-      <h1>Bedrock</h1>
-      <p
-        className={`remote__status remote__status--${status.toLowerCase()}`}
-        aria-live="polite"
-      >
-        {status}
-      </p>
-      <p className="remote__hint">
-        {needsPairing || status === "DISCONNECTED"
-          ? "Enter the 6-digit code shown on the Bedrock TV / laptop."
-          : "Looking for the laptop on this Wi-Fi…"}
-      </p>
-      <form className="remote__pair" onSubmit={submitPairing}>
-        <input
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={6}
-          autoComplete="one-time-code"
-          placeholder="000000"
-          value={pairingCode}
-          onChange={(e) =>
-            setPairingCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          aria-label="Pairing code"
-        />
-        <button type="submit" disabled={!client || pairingCode.length !== 6}>
-          Pair
-        </button>
-      </form>
-      {pairingError ? <p className="remote__error">{pairingError}</p> : null}
-      {toast ? (
-        <p
-          className={`remote__toast remote__toast--visible${
-            toast.ok ? "" : " remote__toast--err"
-          }`}
-          aria-live="polite"
-        >
-          {toast.message}
-        </p>
-      ) : null}
-    </main>
-  );
+  if (needsPairing) {
+    return <PairingScreen errorTick={pairErrorTick} busy={pairBusy} onSubmit={submitPairing} />;
+  }
+
+  return <ConnectingScreen />;
 }
 
 export function App() {

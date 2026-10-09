@@ -1,10 +1,39 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { RemoteCommand, SourceCapabilities } from "@bedrock/shared";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  describeCommand,
+  describeFailure,
+  describeNav,
+  type NavAction,
+  type RemoteCommand,
+  type SourceCapabilities,
+} from "@bedrock/shared";
 import type { ConnectionStatus, WsClient } from "../ws-client";
 import { resolveControlAction } from "../remote-actions";
-import { TrackpadSurface } from "../components/TrackpadSurface";
+import { Clickpad } from "../components/Clickpad";
+import { DPad } from "../components/DPad";
+import { Hud } from "../components/Hud";
+import { Icon, type IconName } from "../components/Icon";
 import { KeyboardInput } from "../components/KeyboardInput";
-import { SpecialKeys } from "../components/SpecialKeys";
+import { MoreSheet } from "../components/MoreSheet";
+import { SearchSheet } from "../components/SearchSheet";
+import { SegmentedControl } from "../components/SegmentedControl";
+import { Transport } from "../components/Transport";
+import { ActivityIndicator } from "../components/ActivityIndicator";
+
+type InputMode = "touch" | "dpad";
+type Sheet = "keyboard" | "more" | "search" | null;
+
+const INPUT_MODE_KEY = "bedrock.remote.inputMode";
+
+function readInputMode(): InputMode {
+  try {
+    const v = window.localStorage.getItem(INPUT_MODE_KEY);
+    if (v === "dpad" || v === "touch") return v;
+  } catch {
+    /* storage unavailable */
+  }
+  return "touch";
+}
 
 interface RemoteControlsProps {
   client: WsClient;
@@ -14,6 +43,24 @@ interface RemoteControlsProps {
   capabilities: SourceCapabilities | null;
   toast: { message: string; ok: boolean } | null;
   onToast: (toast: { message: string; ok: boolean }) => void;
+}
+
+function ToolbarButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button type="button" className="glass-button" aria-label={label} disabled={disabled} onClick={onClick}>
+      <Icon name={icon} size={22} />
+    </button>
+  );
 }
 
 /**
@@ -28,30 +75,33 @@ export function RemoteControls({
   toast,
   onToast,
 }: RemoteControlsProps) {
-  const [busy, setBusy] = useState(false);
-  const [inputMode, setInputMode] = useState<"dpad" | "trackpad">("trackpad");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [inputMode, setInputModeState] = useState<InputMode>(readInputMode);
+  const [sheet, setSheet] = useState<Sheet>(null);
   const padRef = useRef<HTMLDivElement | null>(null);
 
+  const online = status === "CONNECTED";
   const seek = capabilities?.supportsSeek ?? true;
   const volume = capabilities?.supportsVolume ?? true;
+  const next = capabilities?.supportsNextEpisode ?? false;
   const browse = capabilities?.supportsBrowseNavigate ?? true;
-  const canSearch = capabilities?.supportsSearch ?? false;
-  const mediaEnabled = mode === "player";
+  const canSearch = (capabilities?.supportsSearch ?? false) && mode === "player";
+  const isPlayer = mode === "player";
 
-  useEffect(() => {
-    if (!searchOpen) return;
-    searchInputRef.current?.focus();
-  }, [searchOpen]);
+  const setInputMode = (m: InputMode) => {
+    setInputModeState(m);
+    try {
+      window.localStorage.setItem(INPUT_MODE_KEY, m);
+    } catch {
+      /* storage unavailable */
+    }
+  };
 
   // Keep the control surface from scrolling/zooming under thumbs.
   useEffect(() => {
     const el = padRef.current;
     if (!el) return;
     const block = (event: TouchEvent) => {
-      if ((event.target as HTMLElement | null)?.closest("input, textarea")) {
+      if ((event.target as HTMLElement | null)?.closest("input, textarea, .sheet")) {
         return;
       }
       event.preventDefault();
@@ -60,275 +110,123 @@ export function RemoteControls({
     return () => el.removeEventListener("touchmove", block);
   }, []);
 
-  const press = async (action: Parameters<typeof resolveControlAction>[1]) => {
+  // Offline: the "Reconnecting…" banner already says it; stay quiet.
+  const offline = useCallback(() => undefined, []);
+
+  const press = async (action: NavAction) => {
+    if (!online) return offline();
     const dispatch = resolveControlAction(mode, action);
     try {
       if (dispatch.kind === "nav") {
         await client.sendNav(dispatch.action);
-        onToast({ message: `nav:${dispatch.action}`, ok: true });
+        onToast({ message: describeNav(dispatch.action), ok: true });
         return;
       }
-      setBusy(true);
       const result = await client.sendCommand(dispatch.command);
-      onToast({
-        message: result.ok
-          ? dispatch.command.type
-          : `${dispatch.command.type} failed (${result.reason})`,
-        ok: result.ok,
-      });
+      onToast(
+        result.ok
+          ? { message: describeCommand(dispatch.command), ok: true }
+          : { message: describeFailure(describeCommand(dispatch.command), result.reason), ok: false },
+      );
     } catch {
-      onToast({ message: "Not connected", ok: false });
-    } finally {
-      setBusy(false);
+      offline();
     }
   };
 
   const pressCommand = async (command: RemoteCommand) => {
-    setBusy(true);
+    if (!online) return offline();
     try {
       const result = await client.sendCommand(command);
-      onToast({
-        message: result.ok
-          ? command.type === "search"
-            ? `search: ${command.query}`
-            : command.type
-          : `${command.type} failed (${result.reason})`,
-        ok: result.ok,
-      });
+      onToast(
+        result.ok
+          ? { message: describeCommand(command), ok: true }
+          : { message: describeFailure(describeCommand(command), result.reason), ok: false },
+      );
     } catch {
-      onToast({ message: "Connection lost", ok: false });
-    } finally {
-      setBusy(false);
+      offline();
     }
   };
 
-  const submitSearch = (event: FormEvent) => {
-    event.preventDefault();
-    const query = searchQuery.trim();
-    if (!query) return;
-    setSearchOpen(false);
-    setSearchQuery("");
-    void pressCommand({ type: "search", query });
-  };
-
-  const contextLabel =
-    mode === "player" && activeSourceName ? activeSourceName : "Launcher";
+  const title = isPlayer && activeSourceName ? activeSourceName : "Home";
+  const dpadDisabled = isPlayer && !browse;
 
   return (
-    <main className="remote remote--controls" ref={padRef}>
-      <header className="remote__header">
-        <div className="remote__brand-block">
-          <h1 className="remote__title">Bedrock</h1>
-          <p className="remote__source" aria-live="polite">
-            {contextLabel}
-          </p>
-        </div>
-        <p
-          className={`remote__status remote__status--${status.toLowerCase()}`}
-          aria-live="polite"
-        >
-          {status}
-        </p>
-      </header>
-
-      <section className="remote__system" aria-label="System">
-        <button
-          type="button"
-          className="remote__chip"
-          onClick={() => void press("back")}
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          className="remote__chip remote__chip--accent"
-          onClick={() => void press("home")}
-        >
-          Home
-        </button>
-        {canSearch ? (
-          <button
-            type="button"
-            className="remote__chip remote__chip--search"
-            disabled={busy || !mediaEnabled}
-            onClick={() => setSearchOpen(true)}
-            title={!mediaEnabled ? "Open a source to search" : "Search"}
-          >
-            Search
-          </button>
-        ) : null}
-      </section>
-
-      <div className="remote__input-toggle">
-        <button
-          type="button"
-          className={`remote__toggle-btn ${inputMode === "dpad" ? "remote__toggle-btn--active" : ""}`}
-          onClick={() => setInputMode("dpad")}
-        >
-          D-pad
-        </button>
-        <button
-          type="button"
-          className={`remote__toggle-btn ${inputMode === "trackpad" ? "remote__toggle-btn--active" : ""}`}
-          onClick={() => setInputMode("trackpad")}
-        >
-          Trackpad
-        </button>
-      </div>
-
-      {inputMode === "dpad" ? (
-        <div className="dpad" role="group" aria-label="D-pad">
-          <button
-            type="button"
-            className="dpad__btn dpad__up"
-            disabled={busy || (mediaEnabled && !browse)}
-            onClick={() => void press("up")}
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            className="dpad__btn dpad__left"
-            disabled={busy || (mediaEnabled && !browse)}
-            onClick={() => void press("left")}
-          >
-            ◀
-          </button>
-          <button
-            type="button"
-            className="dpad__btn dpad__select"
-            disabled={busy || (mediaEnabled && !browse)}
-            onClick={() => void press("select")}
-            aria-label="Select"
-          >
-            SELECT
-          </button>
-          <button
-            type="button"
-            className="dpad__btn dpad__right"
-            disabled={busy || (mediaEnabled && !browse)}
-            onClick={() => void press("right")}
-          >
-            ▶
-          </button>
-          <button
-            type="button"
-            className="dpad__btn dpad__down"
-            disabled={busy || (mediaEnabled && !browse)}
-            onClick={() => void press("down")}
-          >
-            ▼
-          </button>
-        </div>
-      ) : (
-        <div style={{ width: "min(100%, 17.5rem)", height: "13rem", margin: "0.15rem 0", display: "flex" }}>
-          <TrackpadSurface client={client} status={status} onToast={onToast} />
-        </div>
-      )}
-
-      {inputMode === "trackpad" ? (
-        <div className="remote__keyboard-area">
-          <KeyboardInput client={client} status={status} onToast={onToast} />
-          <SpecialKeys client={client} onToast={onToast} />
+    <main className={`remote${online ? "" : " remote--offline"}${toast ? " remote--hud" : ""}`} ref={padRef}>
+      <Hud toast={toast} />
+      {!online ? (
+        <div className="banner" role="status" aria-live="polite">
+          <ActivityIndicator size={16} />
+          <span>Reconnecting…</span>
         </div>
       ) : null}
 
-
-      <div className="transport" aria-label="Playback">
-        <button
-          type="button"
-          disabled={busy || !mediaEnabled}
-          onClick={() => void pressCommand({ type: "toggle-play-pause" })}
-        >
-          Play / Pause
-        </button>
-        <button
-          type="button"
-          disabled={busy || !mediaEnabled || !seek}
-          onClick={() =>
-            void pressCommand({ type: "seek", deltaSeconds: -10 })
-          }
-        >
-          Seek −
-        </button>
-        <button
-          type="button"
-          disabled={busy || !mediaEnabled || !seek}
-          onClick={() =>
-            void pressCommand({ type: "seek", deltaSeconds: 10 })
-          }
-        >
-          Seek +
-        </button>
-        <button
-          type="button"
-          disabled={busy || !mediaEnabled || !volume}
-          onClick={() =>
-            void pressCommand({ type: "volume", direction: "down" })
-          }
-        >
-          Vol −
-        </button>
-        <button
-          type="button"
-          disabled={busy || !mediaEnabled || !volume}
-          onClick={() =>
-            void pressCommand({ type: "volume", direction: "up" })
-          }
-        >
-          Vol +
-        </button>
-      </div>
-
-      <div
-        className={`remote__toast${toast ? " remote__toast--visible" : ""}${
-          toast && !toast.ok ? " remote__toast--err" : ""
-        }`}
-        aria-live="polite"
-        role="status"
-      >
-        {toast?.message ??
-          (mediaEnabled ? "Media controls active" : "D-pad + SELECT on launcher")}
-      </div>
-
-      {searchOpen ? (
-        <div className="remote__search-sheet" role="dialog" aria-label="Search">
-          <form className="remote__search-form" onSubmit={submitSearch}>
-            <label className="remote__search-label" htmlFor="remote-search">
-              Search
-            </label>
-            <input
-              id="remote-search"
-              ref={searchInputRef}
-              type="search"
-              enterKeyHint="search"
-              autoCapitalize="off"
-              autoCorrect="off"
-              placeholder="Title, show, channel…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <div className="remote__search-actions">
-              <button
-                type="button"
-                className="remote__chip"
-                onClick={() => {
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="remote__chip remote__chip--accent"
-                disabled={busy || !searchQuery.trim()}
-              >
-                Go
-              </button>
-            </div>
-          </form>
+      <header className="header">
+        <div className="header__text">
+          <h1 className="header__title">{title}</h1>
+          <p className={`status${online ? "" : " status--warn"}`}>
+            <span className="status__dot" aria-hidden="true" />
+            {online ? "Connected" : "Reconnecting…"}
+          </p>
         </div>
+        <button type="button" className="glass-button" aria-label="More" onClick={() => setSheet("more")}>
+          <Icon name="ellipsis" size={22} />
+        </button>
+      </header>
+
+      <nav className="toolbar" aria-label="System">
+        <ToolbarButton icon="chevron.left" label="Back" onClick={() => void press("back")} />
+        <ToolbarButton icon="house.fill" label="Home" onClick={() => void press("home")} />
+        {canSearch ? (
+          <ToolbarButton icon="magnifyingglass" label="Search" onClick={() => setSheet("search")} />
+        ) : null}
+        <ToolbarButton icon="keyboard" label="Keyboard" onClick={() => setSheet("keyboard")} />
+      </nav>
+
+      <SegmentedControl<InputMode>
+        label="Input"
+        value={inputMode}
+        onChange={setInputMode}
+        options={[
+          { value: "touch", label: "Touch" },
+          { value: "dpad", label: "D-pad" },
+        ]}
+      />
+
+      <section className="surface" aria-label="Input">
+        {inputMode === "touch" ? (
+          <Clickpad client={client} status={status} onToast={onToast} />
+        ) : (
+          <DPad disabled={dpadDisabled} onPress={(a) => void press(a)} />
+        )}
+      </section>
+
+      {isPlayer ? (
+        <Transport
+          canSeek={seek}
+          canVolume={volume}
+          canNext={next}
+          onPlayPause={() => void pressCommand({ type: "toggle-play-pause" })}
+          onSeek={(d) => void pressCommand({ type: "seek", deltaSeconds: d })}
+          onNext={() => void pressCommand({ type: "next-episode" })}
+          onVolume={(d) => void pressCommand({ type: "volume", direction: d })}
+        />
+      ) : (
+        <div className="launcher-hint">
+          <Icon name="tv" size={22} />
+          <p>Choose an app on your TV to start watching</p>
+        </div>
+      )}
+
+      {sheet === "keyboard" ? (
+        <KeyboardInput client={client} onClose={() => setSheet(null)} onToast={onToast} />
+      ) : null}
+      {sheet === "more" ? <MoreSheet client={client} onClose={() => setSheet(null)} onToast={onToast} /> : null}
+      {sheet === "search" ? (
+        <SearchSheet
+          sourceName={activeSourceName}
+          onClose={() => setSheet(null)}
+          onSubmit={(query) => void pressCommand({ type: "search", query })}
+        />
       ) : null}
     </main>
   );

@@ -1,19 +1,41 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { createPointerCoalescer, TRACKPAD_TAP_SLOP, TRACKPAD_TAP_MAX_MS } from '../pointer-coalesce';
-import type { WsClient } from '../ws-client';
-import type { InputCommand } from '@bedrock/shared';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPointerCoalescer, TRACKPAD_TAP_SLOP, TRACKPAD_TAP_MAX_MS } from "../pointer-coalesce";
+import type { ConnectionStatus, WsClient } from "../ws-client";
+import type { InputCommand } from "@bedrock/shared";
+import { describeFailure, describeInput } from "@bedrock/shared";
 
-type ConnectionStatus = 'CONNECTED' | 'CONNECTING' | 'DISCONNECTED';
-
-interface TrackpadSurfaceProps {
+interface ClickpadProps {
   client: WsClient;
   status: ConnectionStatus;
   onToast: (toast: { message: string; ok: boolean }) => void;
 }
 
-export function TrackpadSurface({ client, status, onToast }: TrackpadSurfaceProps) {
+interface Ripple {
+  id: number;
+  x: number;
+  y: number;
+}
+
+const HINT_KEY = "bedrock.remote.hintSeen";
+
+function readHintSeen(): boolean {
+  try {
+    return window.localStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Touch surface (Siri Remote clickpad). One finger moves, tap clicks, two fingers scroll.
+ * Gesture logic is unchanged; this component only restyles it and adds feedback.
+ */
+export function Clickpad({ client, status, onToast }: ClickpadProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef(status);
+  const [ripples, setRipples] = useState<Ripple[]>([]);
+  const [hintSeen, setHintSeen] = useState(readHintSeen);
+  const rippleId = useRef(0);
 
   useEffect(() => {
     statusRef.current = status;
@@ -32,17 +54,29 @@ export function TrackpadSurface({ client, status, onToast }: TrackpadSurfaceProp
 
   const coalescer = useRef<ReturnType<typeof createPointerCoalescer> | null>(null);
 
-  const sendInput = useCallback((cmd: InputCommand, awaitResult = false) => {
-    if (status !== 'CONNECTED') return;
-    client.sendInput(cmd, { awaitResult }).catch(err => {
-      onToast({ message: `Input error: ${err.message}`, ok: false });
-    });
-  }, [client, status, onToast]);
+  const sendInput = useCallback(
+    (cmd: InputCommand, awaitResult = false) => {
+      if (status !== "CONNECTED") return;
+      client
+        .sendInput(cmd, { awaitResult })
+        .then((result) => {
+          if (!result.ok) onToast({ message: describeFailure("Click", result.reason), ok: false });
+          else {
+            const label = awaitResult ? describeInput(cmd) : null;
+            if (label) onToast({ message: label, ok: true });
+          }
+        })
+        .catch(() => {
+          onToast({ message: describeFailure("Click"), ok: false });
+        });
+    },
+    [client, status, onToast],
+  );
 
   useEffect(() => {
     coalescer.current = createPointerCoalescer({
       send: (cmd) => sendInput(cmd),
-      isActive: () => statusRef.current === 'CONNECTED'
+      isActive: () => statusRef.current === "CONNECTED",
     });
     return () => {
       coalescer.current?.dispose();
@@ -52,21 +86,39 @@ export function TrackpadSurface({ client, status, onToast }: TrackpadSurfaceProp
   useEffect(() => {
     const el = surfaceRef.current;
     if (!el) return;
-    
+
     // Prevent default touch behaviors like scrolling and zooming
     const prevent = (e: TouchEvent) => e.preventDefault();
-    el.addEventListener('touchstart', prevent, { passive: false });
-    el.addEventListener('touchmove', prevent, { passive: false });
-    el.addEventListener('touchend', prevent, { passive: false });
-    el.addEventListener('touchcancel', prevent, { passive: false });
-    
+    el.addEventListener("touchstart", prevent, { passive: false });
+    el.addEventListener("touchmove", prevent, { passive: false });
+    el.addEventListener("touchend", prevent, { passive: false });
+    el.addEventListener("touchcancel", prevent, { passive: false });
+
     return () => {
-      el.removeEventListener('touchstart', prevent);
-      el.removeEventListener('touchmove', prevent);
-      el.removeEventListener('touchend', prevent);
-      el.removeEventListener('touchcancel', prevent);
+      el.removeEventListener("touchstart", prevent);
+      el.removeEventListener("touchmove", prevent);
+      el.removeEventListener("touchend", prevent);
+      el.removeEventListener("touchcancel", prevent);
     };
   }, []);
+
+  const markUsed = () => {
+    if (hintSeen) return;
+    setHintSeen(true);
+    try {
+      window.localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      /* private mode */
+    }
+  };
+
+  const addRipple = (clientX: number, clientY: number) => {
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const id = ++rippleId.current;
+    setRipples((r) => [...r.slice(-3), { id, x: clientX - rect.left, y: clientY - rect.top }]);
+    setTimeout(() => setRipples((r) => r.filter((x) => x.id !== id)), 650);
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length > 0) {
@@ -88,6 +140,8 @@ export function TrackpadSurface({ client, status, onToast }: TrackpadSurfaceProp
         startTime: Date.now(),
         isTwoFinger: e.touches.length >= 2,
       };
+      markUsed();
+      addRipple(touch.clientX, touch.clientY);
     }
   };
 
@@ -130,50 +184,45 @@ export function TrackpadSurface({ client, status, onToast }: TrackpadSurfaceProp
   const handleTouchEnd = (e: React.TouchEvent) => {
     const { startX, startY, startTime, isTwoFinger } = touchState.current;
     if (isTwoFinger) return;
-    
+
     if (e.changedTouches.length === 0) return;
     const touch = e.changedTouches[0]!;
-    
+
     const dx = touch.clientX - startX;
     const dy = touch.clientY - startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const time = Date.now() - startTime;
-    
+
     if (dist <= TRACKPAD_TAP_SLOP && time <= TRACKPAD_TAP_MAX_MS) {
-      sendInput({ type: 'pointer-click', button: 'left' }, true);
+      try {
+        navigator.vibrate?.(8);
+      } catch {
+        /* best-effort */
+      }
+      sendInput({ type: "pointer-click", button: "left" }, true);
     }
   };
 
   return (
     <div
       ref={surfaceRef}
-      className="trackpad-surface"
-      style={{
-        flex: 1,
-        width: '100%',
-        backgroundColor: 'var(--muted)',
-        borderRadius: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        touchAction: 'none',
-        userSelect: 'none',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
+      className="clickpad"
+      role="application"
+      aria-label="Touch surface. Swipe to move, tap to click, two fingers to scroll."
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
-      onContextMenu={e => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
     >
-      <span style={{ color: 'var(--fg)', fontSize: '1.2rem', fontWeight: 500, opacity: 0.5 }}>
-        Trackpad
-      </span>
-      <span style={{ color: 'var(--fg)', fontSize: '0.85rem', opacity: 0.4, marginTop: '8px' }}>
-        1 finger: move  ·  2 fingers: scroll  ·  tap: select
-      </span>
+      <p className={`clickpad__hint${hintSeen ? " is-hidden" : ""}`}>
+        Swipe to move · Tap to click
+        <br />
+        Two fingers to scroll
+      </p>
+      {ripples.map((r) => (
+        <span key={r.id} className="clickpad__ripple" style={{ left: r.x, top: r.y }} />
+      ))}
     </div>
   );
 }
