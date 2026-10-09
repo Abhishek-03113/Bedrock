@@ -1,8 +1,29 @@
 import { useRef, useEffect, type ChangeEvent, type FormEvent } from "react";
 import type { WsClient } from "../ws-client";
+import type { CommandResult } from "@bedrock/shared";
 import { describeFailure } from "@bedrock/shared";
 import { Sheet, useSheetClose } from "./Sheet";
 import { Icon } from "./Icon";
+
+/** Server rejects text-input longer than 512 UTF-16 units. */
+const MAX_TEXT_INPUT = 512;
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+/** Split into <= max-unit chunks without breaking surrogate pairs. */
+function chunkText(text: string, max: number): string[] {
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    let end = Math.min(text.length, i + max);
+    if (end < text.length && isHighSurrogate(text.charCodeAt(end - 1))) end--;
+    chunks.push(text.slice(i, end));
+    i = end;
+  }
+  return chunks;
+}
 
 interface KeyboardInputProps {
   client: WsClient;
@@ -28,40 +49,64 @@ function KeyboardBody({ client, onToast }: Omit<KeyboardInputProps, "onClose">) 
     inputRef.current?.focus();
   }, []);
 
-  const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  /** Await a batch of already-sent requests; toast on any failure. */
+  const settle = async (sent: Array<Promise<CommandResult>>, label: string) => {
+    try {
+      const results = await Promise.all(sent);
+      const failed = results.find((r) => !r.ok);
+      if (failed && !failed.ok) {
+        onToast({ message: describeFailure(label, failed.reason), ok: false });
+      }
+    } catch {
+      onToast({ message: describeFailure(label), ok: false });
+    }
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     const prev = prevValue.current;
     prevValue.current = val;
 
-    try {
-      if (val.length < prev.length) {
-        const diff = prev.length - val.length;
-        for (let i = 0; i < diff; i++) {
-          await client.sendInput({ type: "key-down", key: "Backspace" }, { awaitResult: true });
-          await client.sendInput({ type: "key-up", key: "Backspace" }, { awaitResult: true });
-        }
-      } else if (val.length > prev.length) {
-        const newChars = val.slice(prev.length);
-        await client.sendInput({ type: "text-input", text: newChars }, { awaitResult: true });
-      }
-    } catch {
-      onToast({ message: describeFailure("Typing"), ok: false });
+    // Common-prefix diff, computed synchronously. This handles mid-string edits
+    // and autocorrect (which replace characters, not just append/trim).
+    // Caveat: the TV caret is at the end of the field, so for an edit made with
+    // the phone caret mid-string we delete back to the first difference and
+    // retype the rest — the best approximation without caret sync.
+    let prefix = 0;
+    const max = Math.min(prev.length, val.length);
+    while (prefix < max && prev[prefix] === val[prefix]) prefix++;
+    // Don't split a surrogate pair (emoji) across the delete/insert boundary.
+    if (prefix > 0 && isHighSurrogate(val.charCodeAt(prefix - 1))) prefix--;
+
+    const deletions = Array.from(prev.slice(prefix)).length;
+    const inserted = val.slice(prefix);
+
+    // Issue every send synchronously and in order (sendInput writes to the
+    // socket at call time; WS preserves order), only then await the results.
+    // Awaiting between sends would let overlapping change events interleave.
+    const sent: Array<Promise<CommandResult>> = [];
+    for (let i = 0; i < deletions; i++) {
+      sent.push(client.sendInput({ type: "key-down", key: "Backspace" }, { awaitResult: true }));
+      sent.push(client.sendInput({ type: "key-up", key: "Backspace" }, { awaitResult: true }));
     }
+    for (const text of chunkText(inserted, MAX_TEXT_INPUT)) {
+      sent.push(client.sendInput({ type: "text-input", text }, { awaitResult: true }));
+    }
+    if (sent.length > 0) void settle(sent, "Typing");
   };
 
-  const sendReturn = async (e?: FormEvent) => {
+  const sendReturn = (e?: FormEvent) => {
     e?.preventDefault();
-    try {
-      await client.sendInput({ type: "key-down", key: "Enter" }, { awaitResult: true });
-      await client.sendInput({ type: "key-up", key: "Enter" }, { awaitResult: true });
-      if (inputRef.current) {
-        inputRef.current.value = "";
-        prevValue.current = "";
-        inputRef.current.focus();
-      }
-    } catch {
-      onToast({ message: describeFailure("Return"), ok: false });
+    const sent = [
+      client.sendInput({ type: "key-down", key: "Enter" }, { awaitResult: true }),
+      client.sendInput({ type: "key-up", key: "Enter" }, { awaitResult: true }),
+    ];
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      prevValue.current = "";
+      inputRef.current.focus();
     }
+    void settle(sent, "Return");
   };
 
   return (

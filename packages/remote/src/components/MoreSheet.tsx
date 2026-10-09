@@ -40,9 +40,17 @@ function MoreBody({ client, onToast }: Omit<MoreSheetProps, "onClose">) {
       /* best-effort */
     }
     try {
-      await client.sendInput({ type: "key-down", key }, { awaitResult: true });
-      await client.sendInput({ type: "key-up", key }, { awaitResult: true });
-      onToast({ message: feedback, ok: true });
+      // Send down+up back to back (synchronously), then await both.
+      const results = await Promise.all([
+        client.sendInput({ type: "key-down", key }, { awaitResult: true }),
+        client.sendInput({ type: "key-up", key }, { awaitResult: true }),
+      ]);
+      const failed = results.find((r) => !r.ok);
+      if (failed && !failed.ok) {
+        onToast({ message: describeFailure(feedback, failed.reason), ok: false });
+      } else {
+        onToast({ message: feedback, ok: true });
+      }
     } catch {
       onToast({ message: describeFailure(feedback), ok: false });
     }
