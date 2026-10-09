@@ -66,6 +66,15 @@ export class SourceHost {
       this.detachView(sourceId);
       this.unbindEscapeHook(sourceId);
       this.unbindPlaybackHook(sourceId);
+      // Detached views keep their page (audio, DRM sessions) alive until the
+      // webContents is closed; without this a recreated SourceHost (macOS
+      // window close + dock re-activate) would leak the old pages.
+      const view = this.views.get(sourceId);
+      try {
+        if (view && !view.webContents.isDestroyed()) view.webContents.close();
+      } catch {
+        // Already torn down with the window.
+      }
     }
     this.views.clear();
     this.attached.clear();
