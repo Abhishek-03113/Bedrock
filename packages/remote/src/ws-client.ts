@@ -29,6 +29,8 @@ type ToastHandler = (payload: { message: string; ok: boolean }) => void;
  */
 export interface WsClient {
   readonly status: ConnectionStatus;
+  /** Bytes queued in the socket send buffer (0 when not open). Used for backpressure. */
+  readonly bufferedAmount: number;
   sendCommand(command: RemoteCommand): Promise<CommandResult>;
   /**
    * Send pointer/keyboard input. By default awaits acknowledgement.
@@ -141,8 +143,10 @@ export interface CreateWsClientOptions {
   url: string;
   clientId?: string;
   pairingCode?: string;
-  /** Delay before reconnect attempts (ms). */
+  /** Delay before the first reconnect attempt (ms); doubles (with jitter) up to 10 s. */
   reconnectDelayMs?: number;
+  /** Max wait for a command-result before resolving `unknown` (ms). Default 10000. */
+  requestTimeoutMs?: number;
   /** Injected WebSocket constructor for tests. */
   WebSocketImpl?: typeof WebSocket;
 }
@@ -155,6 +159,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
     typeof opts === "string" ? { url: opts } : opts;
   const WebSocketImpl = options.WebSocketImpl ?? WebSocket;
   const reconnectDelayMs = options.reconnectDelayMs ?? 1500;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
   const clientId = options.clientId ?? getOrCreateClientId();
 
   let pairingCode = options.pairingCode;
@@ -162,6 +167,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
   let status: ConnectionStatus = "CONNECTING";
   let intentionalClose = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempt = 0;
 
   let helloHandler: HelloHandler | null = null;
   let contextHandler: ContextHandler | null = null;
@@ -178,6 +184,36 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
     }
   >();
 
+  /** Register a pending request; settles with `unknown` if no result arrives in time. */
+  const trackRequest = (
+    requestId: string,
+    resolve: (result: CommandResult) => void,
+    reject: (err: Error) => void,
+  ) => {
+    const timer = setTimeout(() => {
+      if (pending.delete(requestId)) resolve({ ok: false, reason: "unknown" });
+    }, requestTimeoutMs);
+    pending.set(requestId, {
+      resolve: (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    });
+  };
+
+  /** Capped exponential backoff with jitter; the first retry uses the base delay exactly. */
+  const nextReconnectDelay = (): number => {
+    const attempt = reconnectAttempt++;
+    if (attempt === 0) return reconnectDelayMs;
+    const cap = Math.max(10_000, reconnectDelayMs);
+    const jitter = 0.8 + Math.random() * 0.4;
+    return Math.min(cap, Math.round(reconnectDelayMs * 2 ** attempt * jitter));
+  };
+
   const setStatus = (next: ConnectionStatus) => {
     status = next;
     statusHandler?.(next);
@@ -191,7 +227,10 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
   };
 
   const attach = (ws: WebSocket) => {
+    // Every listener ignores events from a socket that is no longer current,
+    // otherwise orphaned sockets keep reconnecting and multiply.
     ws.addEventListener("open", () => {
+      if (ws !== socket) return;
       setStatus("CONNECTING");
       send({
         kind: "hello",
@@ -201,6 +240,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
     });
 
     ws.addEventListener("message", (event) => {
+      if (ws !== socket) return;
       let message: WsServerMessage;
       try {
         message = JSON.parse(String(event.data)) as WsServerMessage;
@@ -209,6 +249,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
       }
 
       if (message.kind === "hello-ack") {
+        reconnectAttempt = 0;
         setStatus("CONNECTED");
         helloHandler?.(message);
         return;
@@ -239,6 +280,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
     });
 
     ws.addEventListener("close", () => {
+      if (ws !== socket) return;
       rejectPending("connection closed");
       closeHandler?.();
       if (intentionalClose) {
@@ -246,13 +288,17 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
         return;
       }
       setStatus("CONNECTING");
+      if (reconnectTimer != null) clearTimeout(reconnectTimer);
       reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (intentionalClose) return;
         socket = new WebSocketImpl(options.url);
         attach(socket);
-      }, reconnectDelayMs);
+      }, nextReconnectDelay());
     });
 
     ws.addEventListener("error", () => {
+      if (ws !== socket) return;
       // close handler drives reconnect / status
     });
   };
@@ -269,13 +315,18 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
     get status() {
       return status;
     },
+    get bufferedAmount() {
+      return socket.readyState === WebSocketImpl.OPEN
+        ? (socket.bufferedAmount ?? 0)
+        : 0;
+    },
     async sendCommand(command) {
       if (socket.readyState !== WebSocketImpl.OPEN || status !== "CONNECTED") {
         return { ok: false, reason: "no-active-session" };
       }
       const requestId = randomId();
       return new Promise<CommandResult>((resolve, reject) => {
-        pending.set(requestId, { resolve, reject });
+        trackRequest(requestId, resolve, reject);
         send({ kind: "command", requestId, command });
       });
     },
@@ -296,7 +347,7 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
       }
 
       return new Promise<CommandResult>((resolve, reject) => {
-        pending.set(requestId, { resolve, reject });
+        trackRequest(requestId, resolve, reject);
         send(message);
       });
     },
@@ -319,6 +370,11 @@ export function createWsClient(opts: CreateWsClientOptions | string): WsClient {
           ...(pairingCode ? { pairingCode } : {}),
         });
       } else if (socket.readyState === WebSocketImpl.CLOSED) {
+        // A backoff timer may already be pending; cancel it or it would create
+        // a second socket on top of this one.
+        if (reconnectTimer != null) clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+        reconnectAttempt = 0;
         intentionalClose = false;
         setStatus("CONNECTING");
         socket = new WebSocketImpl(options.url);
