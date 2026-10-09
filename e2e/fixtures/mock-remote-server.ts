@@ -33,6 +33,8 @@ export interface MockRemote {
   ofKind(kind: string): any[];
   /** Push a server message to all connected clients. */
   broadcast(msg: unknown): void;
+  /** Terminate every client socket but keep listening (simulates a Wi-Fi blip). */
+  dropClients(): void;
   close(): Promise<void>;
 }
 
@@ -95,6 +97,7 @@ export async function startMockRemote(opts: MockRemoteOptions = {}): Promise<Moc
     commands: () => messages.filter((m) => m.kind === "command").map((m) => m.command),
     ofKind: (k) => messages.filter((m) => m.kind === k),
     broadcast: (m) => wss.clients.forEach((c) => send(c, m)),
+    dropClients: () => wss.clients.forEach((c) => c.terminate()),
     close: () =>
       new Promise<void>((r) => {
         wss.clients.forEach((c) => c.terminate());
