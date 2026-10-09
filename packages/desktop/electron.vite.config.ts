@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
+import { STATIC_DIR, staticAlias } from "./vite.static-alias";
 
 export default defineConfig({
   main: {
@@ -33,6 +34,8 @@ export default defineConfig({
         },
       },
     },
+    resolve: { alias: staticAlias },
+    server: { fs: { allow: [resolve(__dirname, "../.."), STATIC_DIR] } },
     plugins: [react()],
   },
 });

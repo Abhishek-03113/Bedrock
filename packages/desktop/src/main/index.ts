@@ -65,6 +65,14 @@ let stopDiscovery: (() => void) | null = null;
 let toastOverlay: ToastOverlay | null = null;
 let remoteStartError: string | null = null;
 
+/** Window icon for dev runs; packaged builds get theirs from electron-builder. */
+function devWindowIcon(): string | undefined {
+  if (app.isPackaged) return undefined;
+  // __dirname = packages/desktop/out/main
+  const icon = join(__dirname, "../../../../static/icons/bedrock-icon-512.png");
+  return existsSync(icon) ? icon : undefined;
+}
+
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -74,6 +82,7 @@ async function createWindow(): Promise<void> {
     // Avoid a native title strip painting above the media surface on macOS.
     titleBarStyle: "hidden",
     backgroundColor: "#0a0a0a",
+    icon: devWindowIcon(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,

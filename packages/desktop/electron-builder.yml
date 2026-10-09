@@ -1,5 +1,6 @@
 appId: com.bedrock.app
 productName: Bedrock
+icon: ../../static/icons/bedrock-icon-1024.png
 copyright: Copyright © 2026 Bedrock
 
 # Skip native module rebuilding when cross-compiling from macOS to Windows.
