@@ -45,7 +45,7 @@ tag push v* / workflow_dispatch
         1. VMP gate ................ decide BEDROCK_REQUIRE_VMP_SIGNING, fail fast on missing EVS secrets
         2. checkout, pnpm, node 22, python 3.12 (VMP rows), caches
         3. pnpm install --frozen-lockfile
-        4. typecheck + desktop tests + remote tests
+        4. build @bedrock/shared, typecheck, desktop tests, remote tests
         5. pnpm --filter @bedrock/desktop build
         6. electron-rebuild better-sqlite3 against Castlabs ECS ABI
         7. EVS auth (castlabs_evs.account refresh)

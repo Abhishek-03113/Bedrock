@@ -164,6 +164,10 @@ jobs:
       # ---- Fast gate + app build ---------------------------------------------
       # Tests run under Node (better-sqlite3 built for the Node ABI), so they
       # must run BEFORE the native rebuild against the Electron ABI below.
+      # @bedrock/shared resolves to dist/ and is not committed, so build it first.
+      - name: Build shared package
+        run: pnpm --filter @bedrock/shared build
+
       - name: Typecheck
         run: pnpm -r typecheck
 
