@@ -3,7 +3,7 @@
 Epic tracker for an objective performance/optimization pass on CoOSy Desktop.
 Goal: reduce measurable latency, unnecessary work, and resource consumption — not subjective “feels faster” claims.
 
-**Sources of truth:** [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md), [`tasks-desktop-polish.md`](tasks-desktop-polish.md), [`tasks-desktop-multi-source.md`](tasks-desktop-multi-source.md)
+**Sources of truth:** [`docs/PRD.md`](../PRD.md), [`docs/architecture.md`](../architecture.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md), [`tasks-desktop-polish.md`](tasks-desktop-polish.md), [`tasks-desktop-multi-source.md`](tasks-desktop-multi-source.md)
 
 **In scope:** `packages/desktop` (targeted fixes), light `packages/shared` only if types needed  
 **Out of scope:** new media sources, phone PWA, mDNS/pairing expansion, WS expansion, architecture rewrite, random Chromium flags, DRM/CDM internals, new state-management frameworks

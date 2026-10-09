@@ -2,7 +2,7 @@
 
 Epic tracker for multi-source media integration: Netflix (preserve) + YouTube + Hotstar + Prime Video, with keyboard-navigable Big Picture launcher.
 
-**Sources of truth:** [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md), [`tasks-desktop-polish.md`](tasks-desktop-polish.md)
+**Sources of truth:** [`docs/PRD.md`](../PRD.md), [`docs/architecture.md`](../architecture.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md), [`tasks-desktop-polish.md`](tasks-desktop-polish.md)
 
 **In scope:** `packages/shared` (only if types needed), `packages/desktop`  
 **Out of scope:** `packages/remote`, mDNS/pairing expansion, plugin systems, DRM playback automation

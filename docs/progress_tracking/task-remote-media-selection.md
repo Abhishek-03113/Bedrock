@@ -2,7 +2,7 @@
 
 Allow the phone remote to navigate and select media inside the active Netflix / YouTube / Hotstar / Prime UI — without mirroring streaming UIs on the phone.
 
-**Sources of truth:** this file, [`task-mobile-remote-ui.md`](task-mobile-remote-ui.md), [`docs/architecture.md`](docs/architecture.md), shared WS protocol.
+**Sources of truth:** this file, [`task-mobile-remote-ui.md`](task-mobile-remote-ui.md), [`docs/architecture.md`](../architecture.md), shared WS protocol.
 
 ## Legend
 

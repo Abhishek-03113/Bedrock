@@ -2,7 +2,7 @@
 
 Second milestone: make the phone remote genuinely usable — mobile layout, working launcher/media navigation, scroll, search, compact toast, and honest state sync.
 
-**Sources of truth:** this file, [`task-mobile-remote-foundation.md`](task-mobile-remote-foundation.md), [`docs/architecture.md`](docs/architecture.md), shared WS protocol.
+**Sources of truth:** this file, [`task-mobile-remote-foundation.md`](task-mobile-remote-foundation.md), [`docs/architecture.md`](../architecture.md), shared WS protocol.
 
 ## Legend
 

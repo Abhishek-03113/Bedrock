@@ -2,7 +2,7 @@
 
 Implementation tracker for the CoOSy Electron shell POC.
 
-**Sources of truth:** [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`docs/notes.md`](docs/notes.md), [`docs/widevine-spike.md`](docs/widevine-spike.md)
+**Sources of truth:** [`docs/PRD.md`](../PRD.md), [`docs/architecture.md`](../architecture.md), [`docs/notes.md`](../notes.md), [`docs/widevine-spike.md`](../widevine-spike.md)
 
 **In scope:** `packages/shared`, `packages/desktop`  
 **Out of scope (this repo):** `packages/remote` (phone PWA) — desktop still exposes the WS surface the remote will use later.
@@ -31,7 +31,7 @@ From the laptop shell alone (phone remote exercised via `scripts/ws-smoke.mjs`):
 
 ## 1. Blocking decisions & spikes
 
-- [x] **Widevine / DRM spike** — GO provisionally on castlabs ECS `v42.8.0+wvcus` (see [`docs/widevine-spike.md`](docs/widevine-spike.md))
+- [x] **Widevine / DRM spike** — GO provisionally on castlabs ECS `v42.8.0+wvcus` (see [`docs/widevine-spike.md`](../widevine-spike.md))
 - [x] Confirm **OS target** for POC — macOS first
 - [x] Confirm **Continue Watching stays out of v1** — Netflix `supportsNowPlayingMetadata: false`
 - [x] Exercise remote protocol without `packages/remote` — `packages/desktop/scripts/ws-smoke.mjs`

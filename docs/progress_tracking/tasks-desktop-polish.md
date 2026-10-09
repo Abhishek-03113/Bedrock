@@ -2,7 +2,7 @@
 
 Epic tracker for making the CoOSy desktop shell feel like a polished Big Picture-style media surface after the functional Netflix POC.
 
-**Sources of truth:** [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`docs/widevine-spike.md`](docs/widevine-spike.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md)
+**Sources of truth:** [`docs/PRD.md`](../PRD.md), [`docs/architecture.md`](../architecture.md), [`docs/widevine-spike.md`](../widevine-spike.md), [`tasks-desktop-poc.md`](tasks-desktop-poc.md)
 
 **In scope:** `packages/shared` (only if types needed), `packages/desktop`  
 **Out of scope:** phone PWA, mDNS/pairing UX expansion, Go sidecar, additional streaming services

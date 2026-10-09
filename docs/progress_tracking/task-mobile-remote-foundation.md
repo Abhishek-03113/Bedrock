@@ -2,7 +2,7 @@
 
 First milestone: laptop-hosted HTTP + WebSocket remote so a phone on the same Wi-Fi can open a minimal remote UI and control CoOSy.
 
-**Sources of truth:** this file, [`docs/architecture.md`](docs/architecture.md), existing WS/pairing/discovery code.
+**Sources of truth:** this file, [`docs/architecture.md`](../architecture.md), existing WS/pairing/discovery code.
 
 ## Legend
 

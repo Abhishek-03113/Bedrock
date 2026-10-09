@@ -2,7 +2,7 @@
 
 Track progress against the PRD and architecture. Update this file as work lands.
 
-> **Repo scope:** only `packages/shared` and `packages/desktop`. Phone remote (`packages/remote`) is out of scope in this repository — see [`docs/notes.md`](docs/notes.md).
+> **Repo scope:** only `packages/shared` and `packages/desktop`. Phone remote (`packages/remote`) is out of scope in this repository — see [`docs/notes.md`](../notes.md).
 >
 > **Detailed POC checklist:** [`tasks-desktop-poc.md`](tasks-desktop-poc.md)
 
@@ -61,7 +61,7 @@ Track progress against the PRD and architecture. Update this file as work lands.
 
 ## Phase 5 — Phone remote (PWA)
 
-**Out of scope in this repo** (see [`docs/notes.md`](docs/notes.md)).
+**Out of scope in this repo** (see [`docs/notes.md`](../notes.md)).
 
 - [-] DPadScreen (navigate launcher)
 - [-] TransportScreen (buttons from `SourceCapabilities`)

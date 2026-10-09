@@ -2,7 +2,7 @@
 
 Big Picture-style launcher for web media, controlled from your phone.
 
-See [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`docs/notes.md`](docs/notes.md), and [`docs/widevine-spike.md`](docs/widevine-spike.md). Progress: [`tasks-desktop-poc.md`](tasks-desktop-poc.md) (also [`tasks.md`](tasks.md)).
+See [`docs/PRD.md`](docs/PRD.md), [`docs/architecture.md`](docs/architecture.md), [`docs/notes.md`](docs/notes.md), and [`docs/widevine-spike.md`](docs/widevine-spike.md). Progress: [`tasks-desktop-poc.md`](docs/progress_tracking/tasks-desktop-poc.md) (also [`tasks.md`](docs/progress_tracking/tasks.md)).
 
 ## Scope (this repo)
 
