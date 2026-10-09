@@ -1,27 +1,30 @@
 import { memo } from "react";
 import { perfInc } from "../../shared/perf";
+import { brandStyle } from "../source-brand";
 
 interface SourceTileProps {
   id: string;
   displayName: string;
   icon: { src: string; alt?: string };
+  row: number;
+  col: number;
   focused?: boolean;
-  index?: number;
   onSelect: (id: string) => void;
-  onFocusRequest?: (index: number) => void;
+  onFocusRequest?: (row: number, col: number) => void;
 }
 
 /**
- * Renders from MediaSource metadata only — no source-specific logic.
- * memo: focus changes only re-render the previously/newly focused tiles when
- * parent keeps onSelect / onFocusRequest referentially stable.
+ * tvOS-style app card. Renders from MediaSource metadata + a brand tint looked up by id —
+ * no source-specific logic. memo: focus changes re-render only the old/new focused tiles
+ * when the parent keeps onSelect / onFocusRequest referentially stable.
  */
 export const SourceTile = memo(function SourceTile({
   id,
   displayName,
   icon,
+  row,
+  col,
   focused = false,
-  index = 0,
   onSelect,
   onFocusRequest,
 }: SourceTileProps) {
@@ -29,18 +32,25 @@ export const SourceTile = memo(function SourceTile({
   return (
     <button
       type="button"
-      className={`source-tile${focused ? " source-tile--focused" : ""}`}
+      className={`card card--app${focused ? " is-focused" : ""}`}
+      style={brandStyle(id) as React.CSSProperties}
       data-source-id={id}
-      data-source-index={index}
+      data-row={row}
+      data-col={col}
       tabIndex={focused ? 0 : -1}
       aria-label={icon.alt ?? displayName}
-      aria-pressed={focused}
       onClick={() => onSelect(id)}
-      onFocus={() => onFocusRequest?.(index)}
+      onMouseMove={() => onFocusRequest?.(row, col)}
     >
-      <img className={`source-tile__icon source-tile__icon--${id}`} src={icon.src} alt="" />
-      <span className="source-tile__label">{displayName}</span>
-      <span className="source-tile__hint">Browse</span>
+      <span className="card__media">
+        <span className="card__tint">
+          <img className={`card__logo card__logo--${id}`} src={icon.src} alt="" draggable={false} />
+        </span>
+        <span className="card__sheen" aria-hidden="true" />
+      </span>
+      <span className="card__meta card__meta--center">
+        <strong>{displayName}</strong>
+      </span>
     </button>
   );
 });
