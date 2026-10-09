@@ -1,32 +1,36 @@
 #!/usr/bin/env node
 /**
- * Castlabs EVS VMP afterPack hook for electron-builder.
+ * Castlabs EVS VMP signing core for electron-builder hooks.
  *
- * Purpose:
- *   After electron-builder unpacks the application (but before the NSIS/DMG
- *   installer is assembled), sign the application directory using the
- *   Castlabs EVS VMP tool.
+ * This module holds the reusable signing logic. The actual electron-builder
+ * hooks are thin wrappers around `signVmp`:
  *
- *   This gives the packaged Electron runtime a production Widevine VMP
- *   signature, which is required by production DRM license servers that
- *   enforce client trust (such as Netflix production tiers).
+ *   - scripts/vmp-after-pack.mjs  (afterPack) — signs macOS only
+ *   - scripts/vmp-after-sign.mjs  (afterSign) — signs Windows only
  *
- * Usage:
- *   This script is referenced in electron-builder.yml as `afterPack`.
- *   electron-builder calls it automatically during packaging.
+ * Why two hooks (ordering matters, per the Castlabs EVS documentation):
+ *   - macOS:   VMP signing must happen BEFORE Apple code signing
+ *              -> afterPack runs before electron-builder's codesign/notarize.
+ *   - Windows: VMP signing must happen AFTER Authenticode signing
+ *              -> afterSign runs after electron-builder signed the .exe/.dll
+ *                 files and before the NSIS installer is assembled.
  *
  * Environment variables:
  *   BEDROCK_REQUIRE_VMP_SIGNING=1
- *     If set, signing failure is treated as a BUILD FAILURE.
- *     Do NOT set this in development unless EVS credentials are available.
+ *     Signing (and verification) failures become BUILD FAILURES. Without it a
+ *     missing Python / castlabs_evs / failed sign only warns and the build
+ *     continues with the Castlabs development-signed runtime.
+ *     (Legacy name COOSY_REQUIRE_VMP_SIGNING is still honoured.)
+ *   BEDROCK_VMP_PERSISTENT=1
+ *     Use persistent signing: `sign-pkg --persistent` and `verify-pkg -p`.
+ *   BEDROCK_PYTHON
+ *     Force the Python interpreter (CI uses actions/setup-python).
  *
- *   All EVS credentials come from the local EVS configuration:
- *     python -m castlabs_evs.account signin
- *   NEVER store EVS tokens or passwords in this file or the repository.
+ * EVS credentials come from the local EVS configuration
+ * (`python -m castlabs_evs.account signin`, or `refresh` in CI).
+ * NEVER store EVS tokens or passwords in this file or the repository.
  *
- * See docs/widevine-vmp.md for full EVS authentication documentation.
- *
- * @param {import('electron-builder').AfterPackContext} context
+ * See docs/widevine-vmp.md and docs/release-ci.md.
  */
 
 import { execFileSync } from "node:child_process";
@@ -37,13 +41,27 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..", "..", "..");
 
+/** appOutDirs already signed in this process (guards against double signing). */
+const signedDirs = new Set();
+
+/** @returns {boolean} */
+function isSigningRequired() {
+  return (process.env.BEDROCK_REQUIRE_VMP_SIGNING ?? process.env.COOSY_REQUIRE_VMP_SIGNING) === "1";
+}
+
+/** @returns {boolean} */
+function isPersistent() {
+  return process.env.BEDROCK_VMP_PERSISTENT === "1";
+}
+
 /**
  * Resolve the best available Python executable on the current platform.
- * Prefers .venv/bin/python if available.
+ * BEDROCK_PYTHON wins; otherwise prefers .venv, then system interpreters.
  * Returns null if no usable Python is found.
  * @returns {string|null}
  */
-function resolvePython() {
+export function resolvePython() {
+  const forced = process.env.BEDROCK_PYTHON;
   /** @type {string[]} */
   const venvCandidates =
     process.platform === "win32"
@@ -55,7 +73,7 @@ function resolvePython() {
       ? ["py", "python", "python3"]
       : ["python3", "python"];
 
-  const candidates = [...venvCandidates, ...systemCandidates];
+  const candidates = forced ? [forced] : [...venvCandidates, ...systemCandidates];
 
   for (const candidate of candidates) {
     try {
@@ -69,25 +87,37 @@ function resolvePython() {
 }
 
 /**
+ * Sign (and, when required, verify) the packaged application directory with
+ * Castlabs EVS VMP.
+ *
  * @param {import('electron-builder').AfterPackContext} context
+ * @param {{ platforms: string[], hook?: string }} options
+ *   platforms: electronPlatformName values this call is allowed to sign.
+ *   hook: label for log lines ("afterPack" / "afterSign").
  */
-export default async function vmpSign(context) {
+export async function signVmp(context, { platforms, hook = "hook" }) {
   const { appOutDir, electronPlatformName, arch } = context;
 
-  console.log("[vmp] afterPack hook invoked");
+  console.log(`[vmp] ${hook} hook invoked`);
   console.log("[vmp] platform:", electronPlatformName);
   console.log("[vmp] arch:", arch);
   console.log("[vmp] app output directory:", appOutDir);
 
-  const requireSigning = (process.env.BEDROCK_REQUIRE_VMP_SIGNING ?? process.env.COOSY_REQUIRE_VMP_SIGNING) === "1";
+  const requireSigning = isSigningRequired();
+  const persistent = isPersistent();
 
-  // Only sign Windows and macOS — ECS supports both.
-  // Linux ECS has partial Widevine support and signing is not a typical step.
-  const supportedPlatforms = ["win32", "darwin"];
-  if (!supportedPlatforms.includes(electronPlatformName)) {
+  // Only Windows and macOS are VMP-signed — ECS supports both.
+  // Each hook additionally restricts itself to the platform whose ordering
+  // constraint it satisfies (see file header).
+  if (!platforms.includes(electronPlatformName)) {
     console.log(
-      `[vmp] skipping VMP signing — platform ${electronPlatformName} is not a supported VMP signing target`,
+      `[vmp] skipping VMP signing in ${hook} — platform ${electronPlatformName} is not signed by this hook (${platforms.join(", ")})`,
     );
+    return;
+  }
+
+  if (signedDirs.has(appOutDir)) {
+    console.log(`[vmp] ${appOutDir} was already VMP-signed in this run — skipping`);
     return;
   }
 
@@ -137,27 +167,25 @@ export default async function vmpSign(context) {
     return;
   }
 
-  // The signing target is the application directory (appOutDir).
-  // For Windows this is the win-unpacked directory containing the ECS runtime.
-  // Do NOT sign the NSIS installer .exe itself — EVS VMP operates on the
+  // The signing target is the application directory (appOutDir): the
+  // directory containing the .app (macOS) or the .exe (Windows, win-unpacked).
+  // Do NOT sign the NSIS/DMG installer itself — EVS VMP operates on the
   // Electron runtime directory, not the final installer artifact.
   const signingTarget = appOutDir;
   console.log("[vmp] signing application directory:", signingTarget);
 
-  // On Windows when cross-building from macOS, appOutDir is the unpacked app
-  // directory that will be packed into the NSIS installer.  Sign it here so
-  // the Widevine runtime inside carries the VMP signature.
+  const signArgs = ["-m", "castlabs_evs.vmp", "sign-pkg"];
+  if (persistent) signArgs.push("--persistent");
+  signArgs.push(signingTarget);
+
   try {
-    execFileSync(
-      python,
-      ["-m", "castlabs_evs.vmp", "sign-pkg", signingTarget],
-      {
-        stdio: "inherit",
-        // EVS reads credentials from its own local configuration — do not
-        // pass any secrets via env vars here.
-      },
-    );
+    execFileSync(python, signArgs, {
+      stdio: "inherit",
+      // EVS reads credentials from its own local configuration — do not
+      // pass any secrets via env vars here.
+    });
     console.log("[vmp] VMP signing completed successfully");
+    signedDirs.add(appOutDir);
   } catch (err) {
     const msg =
       "[vmp] EVS VMP signing FAILED.\n" +
@@ -177,11 +205,45 @@ export default async function vmpSign(context) {
       "[vmp] Continuing with Castlabs development-signed runtime.\n" +
         "      Set BEDROCK_REQUIRE_VMP_SIGNING=1 to make signing failures fatal.",
     );
+    return;
   }
 
-  // Locate the VMP keybox/manifest file if EVS wrote one, for log confirmation.
+  // When signing is required, also verify the result so a silently
+  // ineffective signature fails the build instead of shipping.
+  if (requireSigning) {
+    const verifyArgs = ["-m", "castlabs_evs.vmp", "verify-pkg", persistent ? "-p" : "-s", signingTarget];
+    console.log("[vmp] verifying VMP signature…");
+    try {
+      execFileSync(python, verifyArgs, { stdio: "inherit" });
+      console.log("[vmp] VMP signature verified");
+    } catch (err) {
+      throw new Error(
+        "[vmp] EVS VMP verification FAILED after signing.\n" +
+          "      The package at " + signingTarget + " does not carry a valid VMP signature.\n" +
+          "      Error: " + String(err),
+      );
+    }
+  }
+
+  // Locate the VMP manifest file if EVS wrote one, for log confirmation.
   const vmpManifest = join(signingTarget, "vmp.hfu");
   if (existsSync(vmpManifest)) {
     console.log("[vmp] vmp.hfu manifest present in signed output");
   }
+}
+
+/**
+ * Legacy single-hook entry point. Equivalent to the macOS afterPack hook;
+ * Windows signing moved to scripts/vmp-after-sign.mjs (Authenticode must run
+ * first). Prefer referencing vmp-after-pack.mjs / vmp-after-sign.mjs directly.
+ * @param {import('electron-builder').AfterPackContext} context
+ */
+export default async function vmpSignLegacy(context) {
+  if (context.electronPlatformName === "win32") {
+    console.warn(
+      "[vmp] scripts/vmp-sign.mjs no longer signs Windows builds (VMP must run after Authenticode). " +
+        "Use scripts/vmp-after-sign.mjs as the electron-builder afterSign hook.",
+    );
+  }
+  await signVmp(context, { platforms: ["darwin"], hook: "afterPack (legacy)" });
 }

@@ -13,6 +13,8 @@ yarn.lock
 dist/
 out/
 build/
+# electron-builder buildResources (entitlements etc.) are source-controlled
+!packages/desktop/build/
 release/
 *.tsbuildinfo
 .turbo/
