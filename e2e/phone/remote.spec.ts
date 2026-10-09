@@ -146,6 +146,8 @@ test.describe("Player mode", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
     await field.fill("dune");
+    const cancel = (await dialog.getByRole("button", { name: "Cancel" }).boundingBox())!;
+    expect(cancel.x + cancel.width).toBeLessThanOrEqual(390);
     await settle(page);
     await snap(page, "phone-09-search");
     await dialog.getByRole("button", { name: "Search", exact: true }).tap();
@@ -213,5 +215,12 @@ test.describe("Small phone", () => {
       expect(box!.width, name).toBeGreaterThanOrEqual(44);
     }
     await snap(page, "phone-12-small");
+
+    // Search sheet: Cancel must sit fully inside the viewport.
+    await page.getByRole("button", { name: "Search", exact: true }).tap();
+    const cancel = await page.getByRole("button", { name: "Cancel" }).boundingBox();
+    expect(cancel).not.toBeNull();
+    expect(cancel!.x).toBeGreaterThanOrEqual(0);
+    expect(cancel!.x + cancel!.width).toBeLessThanOrEqual(375 - 16 + 1);
   });
 });
