@@ -31,7 +31,6 @@ export class RemoteCursorOverlay {
   }
 
   update(state: RemoteCursorState): void {
-    this.positionWindow();
     if (!this.window || this.window.isDestroyed()) return;
 
     if (!this.ready) {
@@ -49,7 +48,12 @@ export class RemoteCursorOverlay {
       // ignore
     }
 
-    if (state.visible && !this.window.isVisible()) this.window.showInactive();
+    // Bounds are kept in sync by parent move/resize listeners; only re-sync
+    // on the hidden → visible transition (not on every pointer move).
+    if (state.visible && !this.window.isVisible()) {
+      this.positionWindow();
+      this.window.showInactive();
+    }
     if (!state.visible && this.window.isVisible()) this.window.hide();
   }
 

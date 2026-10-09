@@ -12,10 +12,16 @@ export function createPointerCoalescer(opts: {
   maxIntervalMs?: number;
   /** Returns false when sending must stop (disconnect). */
   isActive?: () => boolean;
+  /**
+   * Backpressure: when this returns false the accumulated deltas are kept
+   * (they are additive, nothing is lost) and the flush is retried next frame.
+   */
+  canSend?: () => boolean;
 }): {
   move: (dx: number, dy: number) => void;
   scroll: (dx: number, dy: number) => void;
-  flush: () => void;
+  /** Send pending deltas now. `force` ignores `canSend` (e.g. before a click). */
+  flush: (opts?: { force?: boolean }) => void;
   clear: () => void;
   dispose: () => void;
 } {
@@ -41,12 +47,17 @@ export function createPointerCoalescer(opts: {
     timerId = null;
   };
 
-  const flush = () => {
+  const flush = (flushOpts?: { force?: boolean }) => {
     cancelSchedule();
     if (disposed) return;
     if (opts.isActive && !opts.isActive()) {
       pendingMove = { dx: 0, dy: 0 };
       pendingScroll = { dx: 0, dy: 0 };
+      return;
+    }
+
+    if (!flushOpts?.force && opts.canSend && !opts.canSend()) {
+      if (hasPending()) schedule();
       return;
     }
 

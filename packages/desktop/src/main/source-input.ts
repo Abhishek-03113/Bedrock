@@ -98,7 +98,8 @@ export function focusForInput(target: ActivePointerTarget, cursor: CursorState):
   if (contents.isDestroyed()) {
     return { ok: false, reason: "no-active-session" };
   }
-  if (cursor.focused) return null;
+  // Re-check live focus: the user may have alt-tabbed away since we last focused.
+  if (cursor.focused && window.isFocused() && contents.isFocused()) return null;
   if (!window.isFocused()) {
     window.focus();
   }
