@@ -1,5 +1,5 @@
-import type { PlaybackHistoryItem } from "@coosy/shared";
-import type { SourceListItem } from "./coosy-api";
+import type { PlaybackHistoryItem } from "@bedrock/shared";
+import type { SourceListItem } from "./bedrock-api";
 import type { ContinueItem } from "./components/ContinueCard";
 
 /** Keep the renderer source-agnostic while adapting generic history to the existing card. */

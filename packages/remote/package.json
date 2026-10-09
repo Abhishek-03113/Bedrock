@@ -1,9 +1,9 @@
 {
-  "name": "@coosy/remote",
+  "name": "@bedrock/remote",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CoOSy phone remote PWA",
+  "description": "Bedrock phone remote PWA",
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
@@ -13,7 +13,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@coosy/shared": "workspace:*",
+    "@bedrock/shared": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

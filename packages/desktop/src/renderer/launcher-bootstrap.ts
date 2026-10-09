@@ -1,4 +1,4 @@
-import type { ConnectionInfo, SourceListItem } from "./coosy-api";
+import type { ConnectionInfo, SourceListItem } from "./bedrock-api";
 
 interface LauncherBootstrap {
   sources: SourceListItem[];
@@ -24,8 +24,8 @@ export async function loadLauncherBootstrap(): Promise<
   }
 
   const [sources, connection] = await Promise.all([
-    window.coosy?.listSources() ?? Promise.resolve([]),
-    window.coosy?.getConnectionInfo() ?? Promise.resolve(null),
+    window.bedrock?.listSources() ?? Promise.resolve([]),
+    window.bedrock?.getConnectionInfo() ?? Promise.resolve(null),
   ]);
 
   cache = { sources, connection };

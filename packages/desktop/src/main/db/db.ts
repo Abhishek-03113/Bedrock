@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { app } from "electron";
 import { join } from "node:path";
 import { SCHEMA_SQL } from "./schema.js";
-import type { PlaybackHistoryItem } from "@coosy/shared";
+import type { PlaybackHistoryItem } from "@bedrock/shared";
 
 let db: Database.Database | null = null;
 
@@ -33,7 +33,7 @@ function toPlaybackHistoryItem(row: PlaybackHistoryRow): PlaybackHistoryItem {
 export function initDb(): Database.Database {
   if (db) return db;
 
-  const path = join(app.getPath("userData"), "coosy.sqlite");
+  const path = join(app.getPath("userData"), "bedrock.sqlite");
   db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA_SQL);

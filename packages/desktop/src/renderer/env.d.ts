@@ -1,8 +1,8 @@
-import type { CoosyRendererApi } from "./coosy-api";
+import type { BedrockRendererApi } from "./bedrock-api";
 
 declare global {
   interface Window {
-    coosy?: CoosyRendererApi;
+    bedrock?: BedrockRendererApi;
   }
 }
 

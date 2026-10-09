@@ -31,7 +31,7 @@ const logos = {
 };
 
 const headers = {
-  "User-Agent": "CoosyLogoFetch/1.0 (local asset bootstrap)",
+  "User-Agent": "BedrockLogoFetch/1.0 (local asset bootstrap)",
   Accept: "image/svg+xml,text/plain,*/*",
 };
 

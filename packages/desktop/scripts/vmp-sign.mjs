@@ -16,7 +16,7 @@
  *   electron-builder calls it automatically during packaging.
  *
  * Environment variables:
- *   COOSY_REQUIRE_VMP_SIGNING=1
+ *   BEDROCK_REQUIRE_VMP_SIGNING=1
  *     If set, signing failure is treated as a BUILD FAILURE.
  *     Do NOT set this in development unless EVS credentials are available.
  *
@@ -79,7 +79,7 @@ export default async function vmpSign(context) {
   console.log("[vmp] arch:", arch);
   console.log("[vmp] app output directory:", appOutDir);
 
-  const requireSigning = process.env.COOSY_REQUIRE_VMP_SIGNING === "1";
+  const requireSigning = (process.env.BEDROCK_REQUIRE_VMP_SIGNING ?? process.env.COOSY_REQUIRE_VMP_SIGNING) === "1";
 
   // Only sign Windows and macOS — ECS supports both.
   // Linux ECS has partial Widevine support and signing is not a typical step.
@@ -113,7 +113,7 @@ export default async function vmpSign(context) {
     }
     console.warn(msg);
     console.log(
-      "[vmp] COOSY_REQUIRE_VMP_SIGNING is not set — continuing with Castlabs development-signed runtime",
+      "[vmp] BEDROCK_REQUIRE_VMP_SIGNING is not set — continuing with Castlabs development-signed runtime",
     );
     return;
   }
@@ -132,7 +132,7 @@ export default async function vmpSign(context) {
     }
     console.warn(msg);
     console.log(
-      "[vmp] COOSY_REQUIRE_VMP_SIGNING is not set — continuing without VMP signing",
+      "[vmp] BEDROCK_REQUIRE_VMP_SIGNING is not set — continuing without VMP signing",
     );
     return;
   }
@@ -175,7 +175,7 @@ export default async function vmpSign(context) {
     console.error(msg);
     console.log(
       "[vmp] Continuing with Castlabs development-signed runtime.\n" +
-        "      Set COOSY_REQUIRE_VMP_SIGNING=1 to make signing failures fatal.",
+        "      Set BEDROCK_REQUIRE_VMP_SIGNING=1 to make signing failures fatal.",
     );
   }
 

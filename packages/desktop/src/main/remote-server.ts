@@ -8,8 +8,14 @@ import type {
   SourceCapabilities,
   WsClientMessage,
   WsServerMessage,
-} from "@coosy/shared";
-import { parseInputCommand } from "@coosy/shared";
+} from "@bedrock/shared";
+import {
+  describeCommand,
+  describeFailure,
+  describeInput,
+  describeNav,
+  parseInputCommand,
+} from "@bedrock/shared";
 import { listSources, SOURCES } from "./sources/registry.js";
 import type { SourceHost } from "./source-host.js";
 import { authorizeHello } from "./pairing.js";
@@ -36,7 +42,7 @@ export const DEFAULT_REMOTE_PORT = 17832;
 
 const authorized = new WeakSet<WebSocket>();
 
-export function resolveRemotePort(envPort = process.env.COOSY_WS_PORT): number {
+export function resolveRemotePort(envPort = process.env.BEDROCK_WS_PORT ?? process.env.COOSY_WS_PORT /* legacy */): number {
   const n = Number(envPort ?? DEFAULT_REMOTE_PORT);
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_REMOTE_PORT;
 }
@@ -232,12 +238,12 @@ async function handleMessage(
         requestId: message.requestId,
         result,
       });
-      deps.onToast({ message: `${message.command.type} failed`, ok: false });
-      broadcast({
-        kind: "toast",
-        message: `${message.command.type} failed`,
+      const toast = {
+        message: describeFailure(describeCommand(message.command), result.reason),
         ok: false,
-      });
+      };
+      deps.onToast(toast);
+      broadcast({ kind: "toast", ...toast });
       return;
     }
 
@@ -260,8 +266,8 @@ async function handleMessage(
 
     const toast = {
       message: result.ok
-        ? message.command.type
-        : `${message.command.type} failed`,
+        ? describeCommand(message.command)
+        : describeFailure(describeCommand(message.command), result.reason),
       ok: result.ok,
     };
     deps.onToast(toast);
@@ -301,15 +307,11 @@ async function handleMessage(
       requestId: message.requestId,
       result,
     });
-    // Avoid toast spam for high-frequency pointer moves / scroll.
-    if (
-      parsed.type !== "pointer-move" &&
-      parsed.type !== "pointer-scroll" &&
-      parsed.type !== "pointer-down" &&
-      parsed.type !== "pointer-up"
-    ) {
+    // Avoid toast spam: pointer moves/scroll and key-up have no description.
+    const label = describeInput(parsed);
+    if (label) {
       const toast = {
-        message: result.ok ? parsed.type : `${parsed.type} failed`,
+        message: result.ok ? label : describeFailure(label, result.reason),
         ok: result.ok,
       };
       deps.onToast(toast);
@@ -320,7 +322,7 @@ async function handleMessage(
 
   if (message.kind === "nav") {
     deps.onNav(message.action);
-    const toast = { message: `nav:${message.action}`, ok: true };
+    const toast = { message: describeNav(message.action), ok: true };
     deps.onToast(toast);
     broadcast({ kind: "toast", ...toast });
   }

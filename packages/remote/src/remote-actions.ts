@@ -1,4 +1,4 @@
-import type { NavAction, RemoteCommand } from "@coosy/shared";
+import type { NavAction, RemoteCommand } from "@bedrock/shared";
 
 export type RemoteMode = "launcher" | "player";
 

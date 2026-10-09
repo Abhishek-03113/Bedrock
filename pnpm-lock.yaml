@@ -17,7 +17,7 @@ importers:
 
   packages/desktop:
     dependencies:
-      '@coosy/shared':
+      '@bedrock/shared':
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:
@@ -78,7 +78,7 @@ importers:
 
   packages/remote:
     dependencies:
-      '@coosy/shared':
+      '@bedrock/shared':
         specifier: workspace:*
         version: link:../shared
       react:

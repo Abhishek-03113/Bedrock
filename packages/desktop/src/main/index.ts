@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from "electron";
+import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { closeDb, initDb } from "./db/db.js";
 import { SourceHost } from "./source-host.js";
@@ -21,12 +22,56 @@ import { getOrCreatePairingCode } from "./pairing.js";
 import { ToastOverlay } from "./toast-overlay.js";
 import { getLanIPv4 } from "./lan.js";
 
+/**
+ * One-time, best-effort migration of pre-rename (CoOSy) user data.
+ * Renaming the app changes Electron's default `userData` dir, which would
+ * orphan the user's streaming-service logins (session partitions) and history.
+ * Must run before anything touches userData (before `app.whenReady`).
+ */
+function migrateLegacyUserData(): void {
+  try {
+    const userData = app.getPath("userData");
+    if (!existsSync(userData)) {
+      const appData = app.getPath("appData");
+      for (const name of ["CoOSy", "@coosy/desktop", "coosy"]) {
+        const legacy = join(appData, name);
+        if (existsSync(legacy)) {
+          renameSync(legacy, userData);
+          console.log(`[migrate] moved userData ${legacy} -> ${userData}`);
+          break;
+        }
+      }
+    }
+    // The SQLite file was renamed coosy.sqlite -> bedrock.sqlite.
+    const oldDb = join(userData, "coosy.sqlite");
+    const newDb = join(userData, "bedrock.sqlite");
+    if (existsSync(oldDb) && !existsSync(newDb)) {
+      renameSync(oldDb, newDb);
+      for (const ext of ["-wal", "-shm"]) {
+        if (existsSync(oldDb + ext)) renameSync(oldDb + ext, newDb + ext);
+      }
+    }
+  } catch (err) {
+    console.warn("[migrate] legacy userData migration failed", err);
+  }
+}
+
+migrateLegacyUserData();
+
 let mainWindow: BrowserWindow | null = null;
 let sourceHost: SourceHost | null = null;
 let remoteServer: RemoteServer | null = null;
 let stopDiscovery: (() => void) | null = null;
 let toastOverlay: ToastOverlay | null = null;
 let remoteStartError: string | null = null;
+
+/** Window icon for dev runs; packaged builds get theirs from electron-builder. */
+function devWindowIcon(): string | undefined {
+  if (app.isPackaged) return undefined;
+  // __dirname = packages/desktop/out/main
+  const icon = join(__dirname, "../../../../static/icons/bedrock-icon-512.png");
+  return existsSync(icon) ? icon : undefined;
+}
 
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
@@ -37,6 +82,7 @@ async function createWindow(): Promise<void> {
     // Avoid a native title strip painting above the media surface on macOS.
     titleBarStyle: "hidden",
     backgroundColor: "#0a0a0a",
+    icon: devWindowIcon(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -109,7 +155,7 @@ async function startAuxiliaryRemote(): Promise<void> {
     );
     if (!staticRoot) {
       console.warn(
-        "[remote] UI assets missing — run `pnpm --filter @coosy/remote build` (or desktop package script)",
+        "[remote] UI assets missing — run `pnpm --filter @bedrock/remote build` (or desktop package script)",
       );
     }
   } catch (err) {

@@ -1,4 +1,4 @@
-import type { InputCommand } from "@coosy/shared";
+import type { InputCommand } from "@bedrock/shared";
 
 export type RemoteInputMode = "dpad" | "trackpad";
 

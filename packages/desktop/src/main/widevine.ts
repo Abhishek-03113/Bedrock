@@ -31,7 +31,7 @@ export async function ensureWidevineReady(): Promise<void> {
   if (!components?.whenReady) {
     throw new Error(
       "[widevine] Castlabs ECS components API is unavailable. " +
-        "CoOSy must run using the Castlabs ECS Electron runtime (v42.8.0+wvcus). " +
+        "Bedrock must run using the Castlabs ECS Electron runtime (v42.8.0+wvcus). " +
         "Do NOT use stock Electron — it does not provide Widevine CDM. " +
         "See docs/widevine-vmp.md for setup instructions.",
     );

@@ -59,7 +59,7 @@ export interface MediaSource {
 
   handleCommand(command: RemoteCommand): Promise<CommandResult>;
 
-  /** Stop playback when CoOSy leaves this source while retaining its view/session. */
+  /** Stop playback when Bedrock leaves this source while retaining its view/session. */
   pausePlayback(): Promise<CommandResult>;
 
   /** Called when a view becomes available / is rebound after show */

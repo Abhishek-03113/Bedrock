@@ -1,18 +1,18 @@
 {
-  "name": "coosy",
+  "name": "bedrock",
   "private": true,
   "version": "0.1.0",
-  "description": "Big Picture-style launcher for web media, controlled from your phone",
+  "description": "Your laptop, from bed. A 10-foot launcher for streaming apps, controlled from your phone.",
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "pnpm -r run build",
-    "dev": "pnpm --filter @coosy/desktop dev",
-    "dev:remote": "pnpm --filter @coosy/remote dev",
+    "dev": "pnpm --filter @bedrock/desktop dev",
+    "dev:remote": "pnpm --filter @bedrock/remote dev",
     "typecheck": "pnpm -r run typecheck",
-    "test": "pnpm --filter @coosy/desktop test && pnpm --filter @coosy/remote test",
+    "test": "pnpm --filter @bedrock/desktop test && pnpm --filter @bedrock/remote test",
     "clean": "pnpm -r run clean"
   },
   "devDependencies": {

@@ -7,7 +7,7 @@ import type {
   SourceInput,
   SourcePage,
   PlaybackInfo,
-} from "@coosy/shared";
+} from "@bedrock/shared";
 import {
   translateYoutubeCommand,
   youtubeSearchUrl,

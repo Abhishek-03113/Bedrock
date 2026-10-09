@@ -1,0 +1,17 @@
+{
+  "name": "bedrock-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Standalone Playwright visual/e2e harness (not part of the pnpm workspace).",
+  "scripts": {
+    "test": "playwright test",
+    "test:tv": "playwright test --project=tv",
+    "test:phone": "playwright test --project=phone"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "ws": "^8.18.0"
+  }
+}

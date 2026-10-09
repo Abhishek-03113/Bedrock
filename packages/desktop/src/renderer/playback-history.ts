@@ -1,4 +1,4 @@
-import type { PlaybackHistoryItem } from "@coosy/shared";
+import type { PlaybackHistoryItem } from "@bedrock/shared";
 
 let cache: PlaybackHistoryItem[] = [];
 
@@ -8,7 +8,7 @@ export function getCachedPlaybackHistory(): PlaybackHistoryItem[] {
 
 /** Home renders first; history loads in the background and replaces the session cache. */
 export async function refreshPlaybackHistory(): Promise<PlaybackHistoryItem[]> {
-  const items = await (window.coosy?.listPlaybackHistory() ?? Promise.resolve([]));
+  const items = await (window.bedrock?.listPlaybackHistory() ?? Promise.resolve([]));
   cache = items;
   return items;
 }

@@ -18,7 +18,7 @@ import type {
   InputCommand,
   PointerButton,
   RemoteKey,
-} from "@coosy/shared";
+} from "@bedrock/shared";
 
 /** Scale remote finger deltas → view pixels. Tuned for phone thumb travel. */
 export const POINTER_MOVE_SCALE = 1.35;

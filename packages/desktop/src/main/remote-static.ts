@@ -8,6 +8,7 @@ const MIME: Record<string, string> = {
   ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".ico": "image/x-icon",
@@ -81,7 +82,7 @@ export function handleRemoteStaticRequest(
     sendText(
       res,
       503,
-      "Remote UI not available — build @coosy/remote and restart CoOSy.",
+      "Remote UI not available — build @bedrock/remote and restart Bedrock.",
     );
     return;
   }

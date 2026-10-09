@@ -1,6 +1,6 @@
 /**
  * Development-only performance counters.
- * Enable with COOSY_PERF=1 (main + renderer). No-op when unset.
+ * Enable with BEDROCK_PERF=1 (main + renderer). No-op when unset.
  */
 
 export type PerfCounterName =
@@ -28,7 +28,7 @@ export type PerfCounterName =
 
 const enabled =
   typeof process !== "undefined" &&
-  process.env?.COOSY_PERF === "1";
+  (process.env?.BEDROCK_PERF ?? process.env?.COOSY_PERF) === "1"; // COOSY_PERF: legacy name
 
 const counts = new Map<string, number>();
 
@@ -53,7 +53,7 @@ export function perfReset(): void {
   counts.clear();
 }
 
-/** Test helper — force-count regardless of COOSY_PERF (tests call directly). */
+/** Test helper — force-count regardless of BEDROCK_PERF (tests call directly). */
 export function perfIncAlways(name: PerfCounterName, by = 1): void {
   counts.set(name, (counts.get(name) ?? 0) + by);
 }

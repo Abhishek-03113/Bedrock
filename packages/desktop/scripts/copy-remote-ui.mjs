@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy built @coosy/remote assets into desktop out/remote for packaged HTTP serving.
+ * Copy built @bedrock/remote assets into desktop out/remote for packaged HTTP serving.
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -13,7 +13,7 @@ const dest = join(desktopRoot, "out", "remote");
 
 if (!existsSync(join(source, "index.html"))) {
   console.error(
-    `[copy-remote-ui] Missing ${source}/index.html — build @coosy/remote first`,
+    `[copy-remote-ui] Missing ${source}/index.html — build @bedrock/remote first`,
   );
   process.exit(1);
 }
