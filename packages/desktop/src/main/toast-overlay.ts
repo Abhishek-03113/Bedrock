@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron";
 import { perfInc } from "../shared/perf.js";
+import { toastDataUrl } from "./toast-html.js";
 
 /**
  * Temporary toast surface above an active source WebContentsView.
@@ -65,8 +66,8 @@ export class ToastOverlay {
       frame: false,
       transparent: true,
       backgroundColor: "#00000000",
-      width: 420,
-      height: 64,
+      width: 460,
+      height: 72,
       resizable: false,
       movable: false,
       minimizable: false,
@@ -89,8 +90,8 @@ export class ToastOverlay {
 
   private position(parent: BrowserWindow, win: BrowserWindow): void {
     const bounds = parent.getBounds();
-    const width = Math.min(420, Math.max(280, bounds.width - 48));
-    const height = 64;
+    const width = Math.min(460, Math.max(280, bounds.width - 48));
+    const height = 72;
     const x = Math.round(bounds.x + (bounds.width - width) / 2);
     const y = Math.round(bounds.y + bounds.height - height - 28);
     const next = { x, y, width, height };
@@ -107,39 +108,4 @@ export class ToastOverlay {
     win.setBounds(next);
     this.lastBounds = next;
   }
-}
-
-function toastDataUrl(payload: { message: string; ok: boolean }): string {
-  const bg = payload.ok ? "#1b5e20" : "#7f1d1d";
-  const message = escapeHtml(payload.message);
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8" />
-<style>
-  html, body { margin: 0; background: transparent; }
-  body { display: grid; place-items: center; height: 100vh; font-family: system-ui, sans-serif; }
-  .toast {
-    pointer-events: none;
-    padding: 0.65rem 1.1rem;
-    border-radius: 10px;
-    background: ${bg};
-    color: #f2f2f2;
-    font-size: 15px;
-    letter-spacing: 0.01em;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    max-width: 90vw;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-</style></head>
-<body><div class="toast" role="status">${message}</div></body></html>`;
-  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
